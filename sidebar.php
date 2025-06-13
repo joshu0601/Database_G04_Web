@@ -642,6 +642,11 @@
                 </a>
             </li>
             <li class="nav-item">
+                <a class="nav-link <?= $current_page === 'invoice' ? 'active' : '' ?>" href="invoice.php">
+                    <i class="bi bi-receipt"></i> <strong>發票管理</strong>
+                </a>
+            </li>
+            <li class="nav-item">
                 <a class="nav-link <?= $current_page === 'reports' ? 'active' : '' ?>" href="reports.php">
                     <i class="bi bi-bar-chart"></i> <strong>財務報表</strong>
                 </a>

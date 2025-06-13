@@ -205,6 +205,89 @@ try {
             background-color: #f8f9fa;
             color: #212529;
         }
+        
+        /* 深色模式下的金額文字顏色修正 */
+        .dark-mode .text-primary {
+            color: #6ea8fe !important;
+        }
+        
+        .dark-mode .text-success {
+            color: #75b798 !important;
+        }
+        
+        .dark-mode .text-muted {
+            color: #adb5bd !important;
+        }
+        
+        .dark-mode .goal-info {
+            color: #adb5bd !important;
+        }
+        
+        .dark-mode .goal-title {
+            color: #ffffff !important;
+        }
+        
+        .dark-mode .fw-bold {
+            color: inherit !important;
+        }
+        
+        /* 確保深色模式下的小標題可見 */
+        .dark-mode .small {
+            color: #adb5bd !important;
+        }
+        
+        /* 深色模式下的卡片內容 */
+        .dark-mode .card-body .small {
+            color: #adb5bd !important;
+        }
+        
+        .dark-mode .card-body .fw-bold.text-primary {
+            color: #6ea8fe !important;
+        }
+        
+        .dark-mode .card-body .fw-bold.text-success {
+            color: #75b798 !important;
+        }
+        
+        /* 深色模式下的 Bootstrap 文字顏色覆蓋 */
+        .dark-mode .text-primary {
+            color: #6ea8fe !important;
+        }
+        
+        .dark-mode .text-success {
+            color: #75b798 !important;
+        }
+        
+        .dark-mode .text-danger {
+            color: #f1aeb5 !important;
+        }
+        
+        .dark-mode .text-warning {
+            color: #ffda6a !important;
+        }
+        
+        .dark-mode .text-info {
+            color: #6edff6 !important;
+        }
+        
+        /* 深色模式下的表單文字 */
+        .dark-mode .form-text {
+            color: #adb5bd !important;
+        }
+        
+        /* 深色模式下的進度條文字 */
+        .dark-mode .goal-info {
+            color:rgb(255, 255, 255) !important;
+        }
+        
+        /* 深色模式下確保所有文字都可見 */
+        .dark-mode .card .small.text-muted {
+            color:rgb(255, 255, 255) !important;
+        }
+        
+        .dark-mode .card .fw-bold {
+            color: inherit !important;
+        }
     </style>
 </head>
 <body>

@@ -13,8 +13,8 @@ if (isset($_POST['register'])) {
     $password = password_hash($_POST['reg_password'], PASSWORD_DEFAULT);
     if ($user_account && $name && $_POST['reg_password']) {
         try {
-            $stmt = $db->prepare("INSERT INTO users (user_account, name, password) VALUES (?, ?, ?)");
-            $stmt->execute([$user_account, $name, $password]);
+            $stmt = $db->prepare("INSERT INTO users (user_account, name) VALUES (?, ?)");
+            $stmt->execute([$user_account, $name]);
             header("Location: login.php");
             exit;
         } catch (PDOException $e) {
