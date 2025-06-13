@@ -24,6 +24,66 @@ $message = '';
 $message_type = '';
 $show_toast = false;
 
+// 處理刪除交易
+if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
+    $transaction_id = intval($_GET['delete']);
+    
+    try {
+        // 檢查交易是否屬於該用戶
+        $check_stmt = $db->prepare("SELECT transaction_id, type, amount FROM transactions WHERE transaction_id = ? AND user_id = ?");
+        $check_stmt->execute([$transaction_id, $user_id]);
+        $transaction = $check_stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$transaction) {
+            throw new Exception('找不到該交易記錄或您沒有權限刪除');
+        }
+        
+        $db->beginTransaction();
+        
+        // 先刪除相關的發票記錄（如果有的話）
+        $delete_invoice_stmt = $db->prepare("DELETE FROM invoices WHERE transaction_id = ? AND user_id = ?");
+        $delete_invoice_stmt->execute([$transaction_id, $user_id]);
+        
+        // 刪除交易
+        $delete_stmt = $db->prepare("DELETE FROM transactions WHERE transaction_id = ? AND user_id = ?");
+        $delete_stmt->execute([$transaction_id, $user_id]);
+        
+        // 更新總資產（如果需要的話）
+        if ($transaction['type'] === 'Income') {
+            // 刪除收入記錄，需要從總資產中減去
+            $update_stmt = $db->prepare("UPDATE users SET total_assets = total_assets - ? WHERE user_id = ?");
+            $update_stmt->execute([$transaction['amount'], $user_id]);
+        } else {
+            // 刪除支出記錄，需要加回總資產
+            $update_stmt = $db->prepare("UPDATE users SET total_assets = total_assets + ? WHERE user_id = ?");
+            $update_stmt->execute([$transaction['amount'], $user_id]);
+        }
+        
+        $db->commit();
+        
+        // 刪除成功後重定向，避免重複執行刪除邏輯
+        $_SESSION['delete_success'] = true;
+        header("Location: transactions.php");
+        exit;
+        
+    } catch (Exception $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        $message = '刪除失敗：' . $e->getMessage();
+        $message_type = 'danger';
+        $show_toast = true;
+    }
+}
+
+// 檢查是否有刪除成功的 session 訊息
+if (isset($_SESSION['delete_success']) && $_SESSION['delete_success']) {
+    $message = '交易記錄已成功刪除！';
+    $message_type = 'success';
+    $show_toast = true;
+    unset($_SESSION['delete_success']); // 清除 session 訊息
+}
+
 // 新增分類
 if (isset($_POST['new_category'])) {
     try {
@@ -67,6 +127,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['type'], $_POST['amoun
         $transaction_date = $_POST['transaction_date'];
         $description = $_POST['description'] ?? '';
         
+        if(empty($description)){
+            $description = 'null'; // 如果備註為空，則設為 null
+        }
         // 驗證資料
         if (empty($type) || !in_array($type, ['Income', 'Expense'])) {
             throw new Exception('請選擇正確的交易類型');
@@ -91,23 +154,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['type'], $_POST['amoun
             throw new Exception('選擇的分類無效');
         }
         
+        // 開始交易
+        $db->beginTransaction();
+        
+        // 新增交易記錄
         $stmt = $db->prepare("INSERT INTO transactions (user_id, type, amount, category_id, transaction_date, description) VALUES (?, ?, ?, ?, ?, ?)");
         $stmt->execute([$user_id, $type, $amount, $category_id, $transaction_date, $description]);
         
-        $message = '交易記錄新增成功！';
+        // 更新總資產
+        if ($type === 'Income') {
+            // 收入：增加總資產
+            $update_stmt = $db->prepare("UPDATE users SET total_assets = total_assets + ? WHERE user_id = ?");
+            $update_stmt->execute([$amount, $user_id]);
+        } else {
+            // 支出：減少總資產
+            $update_stmt = $db->prepare("UPDATE users SET total_assets = total_assets - ? WHERE user_id = ?");
+            $update_stmt->execute([$amount, $user_id]);
+        }
+        
+        $db->commit();
+        
+        $message = '交易記錄新增成功！總資產已更新。';
         $message_type = 'success';
         $show_toast = true;
     } catch (Exception $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
         $message = '交易記錄新增失敗：' . $e->getMessage();
         $message_type = 'danger';
         $show_toast = true;
     }
 }
 
-// 查詢交易紀錄與分類
+// 查詢交易紀錄與分類 - 修改查詢以包含 transaction_id
 try {
-    $stmt = $db->prepare("SELECT transaction_date, type, category_name, amount, description FROM user_transaction_history WHERE user_name = ? ORDER BY transaction_date DESC, created_at DESC");
-    $stmt->execute([$user_name]);
+    $stmt = $db->prepare("SELECT t.transaction_id, t.transaction_date, t.type, c.name as category_name, t.amount, t.description 
+                          FROM transactions t 
+                          LEFT JOIN categories c ON t.category_id = c.category_id 
+                          WHERE t.user_id = ? 
+                          ORDER BY t.transaction_date DESC, t.created_at DESC");
+    $stmt->execute([$user_id]);
     $all_transactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (Exception $e) {
     $all_transactions = [];
@@ -151,16 +238,13 @@ try {
     
     <!-- 防止深色模式閃白的預處理腳本 -->
     <script>
-        // 在頁面載入前就檢查並應用深色模式
         (function() {
             const savedTheme = localStorage.getItem('theme');
             if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
                 document.documentElement.style.backgroundColor = '#1a1a1a';
                 document.documentElement.style.color = '#ffffff';
-                // 預先添加 dark-mode class 到 html 元素
                 document.documentElement.classList.add('dark-mode');
             } else {
-                // 確保淺色模式的預設樣式
                 document.documentElement.style.backgroundColor = '#f8f9fa';
                 document.documentElement.style.color = '#212529';
                 document.documentElement.classList.remove('dark-mode');
@@ -169,7 +253,6 @@ try {
     </script>
     
     <style>
-        /* 預設深色模式樣式，防止閃白 */
         .dark-mode {
             background-color: #1a1a1a !important;
             color: #ffffff !important;
@@ -180,10 +263,232 @@ try {
             color: #ffffff !important;
         }
         
-        /* 預設淺色模式樣式 */
         body {
             background-color: #f8f9fa;
             color: #212529;
+        }
+        
+        /* 交易類型樣式 */
+        .transaction-income {
+            color: #198754 !important;
+            font-weight: 600;
+        }
+        
+        .transaction-expense {
+            color: #dc3545 !important;
+            font-weight: 600;
+        }
+        
+        .transaction-income-badge {
+            background-color: #198754 !important;
+        }
+        
+        .transaction-expense-badge {
+            background-color: #dc3545 !important;
+        }
+        
+        /* 深色模式下的交易類型顏色 */
+        .dark-mode .transaction-income {
+            color: #75b798 !important;
+        }
+        
+        .dark-mode .transaction-expense {
+            color: #f1aeb5 !important;
+        }
+        
+        /* 操作按鈕樣式 */
+        .action-buttons {
+            white-space: nowrap;
+        }
+        
+        .action-buttons .btn {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+        }
+        
+        /* 美化確認刪除模態框 */
+        .delete-confirm-modal .modal-content {
+            border: 2px solid #dc3545;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(220, 53, 69, 0.3);
+        }
+        
+        .delete-confirm-modal .modal-header {
+            background: linear-gradient(135deg, #dc3545, #c82333);
+            color: white;
+            border-top-left-radius: 13px;
+            border-top-right-radius: 13px;
+            border-bottom: none;
+        }
+        
+        .delete-confirm-modal .modal-header .btn-close {
+            filter: brightness(0) invert(1);
+        }
+        
+        .delete-confirm-modal .modal-body {
+            padding: 2rem;
+            text-align: center;
+        }
+        
+        .delete-confirm-modal .warning-icon {
+            font-size: 4rem;
+            color: #dc3545;
+            margin-bottom: 1rem;
+            animation: shake 0.5s ease-in-out;
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        
+        .delete-confirm-modal .transaction-details {
+            background-color: #f8f9fa;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            border-left: 4px solid #dc3545;
+        }
+        
+        .delete-confirm-modal .transaction-details .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            padding: 0.25rem 0;
+        }
+        
+        .delete-confirm-modal .transaction-details .detail-row:last-child {
+            margin-bottom: 0;
+            border-top: 1px solid #dee2e6;
+            padding-top: 0.75rem;
+            margin-top: 0.75rem;
+        }
+        
+        .delete-confirm-modal .transaction-details .detail-label {
+            font-weight: 600;
+            color: #6c757d;
+        }
+        
+        .delete-confirm-modal .transaction-details .detail-value {
+            font-weight: 500;
+        }
+        
+        .delete-confirm-modal .warning-text {
+            color: #dc3545;
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin-top: 1rem;
+        }
+        
+        .delete-confirm-modal .btn-danger {
+            background: linear-gradient(135deg, #dc3545, #c82333);
+            border: none;
+            border-radius: 25px;
+            padding: 0.75rem 2rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(220, 53, 69, 0.3);
+        }
+        
+        .delete-confirm-modal .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(220, 53, 69, 0.4);
+        }
+        
+        .delete-confirm-modal .btn-secondary {
+            border-radius: 25px;
+            padding: 0.75rem 2rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .delete-confirm-modal .btn-secondary:hover {
+            transform: translateY(-2px);
+        }
+        
+        /* 深色模式下的確認刪除樣式 */
+        .dark-mode .delete-confirm-modal .modal-content {
+            background-color: #2d2d2d;
+            color: #ffffff;
+            border-color: #dc3545;
+        }
+        
+        .dark-mode .delete-confirm-modal .modal-body {
+            color: #ffffff;
+        }
+        
+        .dark-mode .delete-confirm-modal .transaction-details {
+            background-color: #404040;
+            color: #ffffff;
+        }
+        
+        .dark-mode .delete-confirm-modal .transaction-details .detail-label {
+            color: #adb5bd;
+        }
+        
+        .dark-mode .delete-confirm-modal .transaction-details .detail-value {
+            color: #ffffff;
+        }
+        
+        .dark-mode .delete-confirm-modal .transaction-details .detail-row:last-child {
+            border-top-color: #555555;
+        }
+        
+        /* 深色模式下的模態框 */
+        .dark-mode .modal-content {
+            background-color: #2d2d2d !important;
+            color: #ffffff !important;
+            border: 1px solid #404040 !important;
+        }
+        
+        .dark-mode .modal-header {
+            background-color: #2d2d2d !important;
+            border-bottom: 1px solid #404040 !important;
+            color: #ffffff !important;
+        }
+        
+        .dark-mode .modal-body {
+            background-color: #2d2d2d !important;
+            color: #ffffff !important;
+        }
+        
+        .dark-mode .modal-footer {
+            background-color: #2d2d2d !important;
+            border-top: 1px solid #404040 !important;
+        }
+        
+        .dark-mode .form-control {
+            background-color: #404040 !important;
+            border-color: #555555 !important;
+            color: #ffffff !important;
+        }
+        
+        .dark-mode .form-control:focus {
+            background-color: #404040 !important;
+            border-color: #6ea8fe !important;
+            box-shadow: 0 0 0 0.2rem rgba(110, 168, 254, 0.25) !important;
+            color: #ffffff !important;
+        }
+        
+        .dark-mode .form-select {
+            background-color: #404040 !important;
+            border-color: #555555 !important;
+            color: #ffffff !important;
+        }
+        
+        .dark-mode .form-label {
+            color: #ffffff !important;
+        }
+        
+        .dark-mode .input-group-text {
+            background-color: #404040 !important;
+            border-color: #555555 !important;
+            color: #ffffff !important;
+        }
+        
+        .dark-mode .btn-close {
+            filter: invert(1) grayscale(100%) brightness(200%);
         }
     </style>
 </head>
@@ -211,7 +516,7 @@ try {
         <div class="row">
             <!-- 側邊欄 -->
             <?php 
-            $current_page = 'transactions'; // 設定當前頁面
+            $current_page = 'transactions';
             include 'sidebar.php'; 
             ?>
             
@@ -219,7 +524,7 @@ try {
             <div class="col-md-10">
                 <div class="card mb-4">
                     <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0">交易記錄</h5>
+                        <h5 class="mb-0"><i class="bi bi-journal-text me-2"></i>交易記錄</h5>
                         <div>
                             <button class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#addTransactionModal">
                                 <i class="bi bi-plus-lg"></i> 新增交易
@@ -232,7 +537,7 @@ try {
                     <div class="card-body p-0">
                         <?php if (!empty($all_transactions)): ?>
                             <div class="table-responsive">
-                                <table class="table table-hover">
+                                <table class="table table-hover mb-0">
                                     <thead class="table-light">
                                         <tr>
                                             <th>日期</th>
@@ -240,6 +545,7 @@ try {
                                             <th>分類</th>
                                             <th>金額</th>
                                             <th>備註</th>
+                                            <th class="text-center">操作</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -252,21 +558,28 @@ try {
                                                     </span>
                                                 </td>
                                                 <td>
-                                                    <span class="small"><?= htmlspecialchars($tx['category_name']) ?></span>
+                                                    <span class="small"><?= htmlspecialchars($tx['category_name'] ?? '未分類') ?></span>
                                                 </td>
                                                 <td class="<?= $tx['type'] === 'Income' ? 'transaction-income' : 'transaction-expense' ?>">
-                                                    $<?= number_format($tx['amount'], 2) ?>
+                                                    $<?= number_format($tx['amount'], 0) ?>
                                                 </td>
-                                                <td class="text-muted small"><?= htmlspecialchars($tx['description']) ?></td>
+                                                <td class="text-muted small"><?= $tx['description'] !== null ? htmlspecialchars($tx['description']) : '' ?></td>
+                                                <td class="text-center action-buttons">
+                                                    <button class="btn btn-outline-danger btn-sm" 
+                                                            onclick="confirmDelete(<?= $tx['transaction_id'] ?>, '<?= htmlspecialchars($tx['type'] === 'Income' ? '收入' : '支出') ?>', '<?= number_format($tx['amount'], 0) ?>', '<?= htmlspecialchars($tx['category_name'] ?? '未分類') ?>', '<?= htmlspecialchars($tx['transaction_date']) ?>', '<?= htmlspecialchars($tx['description']) ?>')">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </td>
                                             </tr>
                                         <?php endforeach; ?>
                                     </tbody>
                                 </table>
                             </div>
                         <?php else: ?>
-                            <div class="text-center p-4">
+                            <div class="text-center p-5">
                                 <i class="bi bi-journal-x fs-1 text-muted d-block mb-3"></i>
-                                <p class="text-muted">尚無交易紀錄</p>
+                                <h5 class="text-muted">尚無交易紀錄</h5>
+                                <p class="text-muted">開始記錄您的第一筆交易吧！</p>
                                 <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addTransactionModal">
                                     <i class="bi bi-plus-lg"></i> 新增交易
                                 </button>
@@ -289,7 +602,7 @@ try {
                 <div class="modal-body">
                     <form method="POST" id="transactionForm">
                         <div class="mb-3">
-                            <label for="type" class="form-label">類型</label>
+                            <label for="type" class="form-label">類型 <span class="text-danger">*</span></label>
                             <select class="form-select" id="type" name="type" required onchange="filterCategories()">
                                 <option value="">請選擇類型</option>
                                 <option value="Income">收入</option>
@@ -298,22 +611,22 @@ try {
                         </div>
                         
                         <div class="mb-3">
-                            <label for="amount" class="form-label">金額</label>
+                            <label for="amount" class="form-label">金額 <span class="text-danger">*</span></label>
                             <div class="input-group">
                                 <span class="input-group-text">$</span>
-                                <input type="number" class="form-control" id="amount" name="amount" min="0.01" step="0.01" required>
+                                <input type="number" class="form-control" id="amount" name="amount" min="1" step="1" required placeholder="0">
                             </div>
                         </div>
                         
                         <div class="mb-3">
-                            <label for="category_id" class="form-label">分類</label>
+                            <label for="category_id" class="form-label">分類 <span class="text-danger">*</span></label>
                             <select class="form-select" id="category_id" name="category_id" required>
                                 <option value="">請先選擇交易類型</option>
                             </select>
                         </div>
                         
                         <div class="mb-3">
-                            <label for="transaction_date" class="form-label">日期</label>
+                            <label for="transaction_date" class="form-label">日期 <span class="text-danger">*</span></label>
                             <input type="date" class="form-control" id="transaction_date" name="transaction_date" value="<?= date('Y-m-d') ?>" required>
                         </div>
                         
@@ -346,12 +659,12 @@ try {
                         <input type="hidden" name="new_category" value="1">
                         
                         <div class="mb-3">
-                            <label for="new_cat_name" class="form-label">分類名稱</label>
+                            <label for="new_cat_name" class="form-label">分類名稱 <span class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="new_cat_name" name="new_cat_name" required placeholder="輸入分類名稱">
                         </div>
                         
                         <div class="mb-3">
-                            <label for="new_cat_type" class="form-label">分類類型</label>
+                            <label for="new_cat_type" class="form-label">分類類型 <span class="text-danger">*</span></label>
                             <select class="form-select" id="new_cat_type" name="new_cat_type" required>
                                 <option value="">請選擇類型</option>
                                 <option value="Income">收入</option>
@@ -370,21 +683,90 @@ try {
         </div>
     </div>
 
+    <!-- 刪除確認 Modal -->
+    <div class="modal fade delete-confirm-modal" id="deleteConfirmModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        確認刪除交易記錄
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="warning-icon">
+                        <i class="bi bi-trash3-fill"></i>
+                    </div>
+                    
+                    <h6 class="mb-3">您即將刪除以下交易記錄：</h6>
+                    
+                    <div class="transaction-details">
+                        <div class="detail-row">
+                            <span class="detail-label">交易日期：</span>
+                            <span class="detail-value" id="delete-date"></span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">交易類型：</span>
+                            <span class="detail-value" id="delete-type"></span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">分類：</span>
+                            <span class="detail-value" id="delete-category"></span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">金額：</span>
+                            <span class="detail-value" id="delete-amount"></span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">備註：</span>
+                            <span class="detail-value" id="delete-description"></span>
+                        </div>
+                    </div>
+                    
+                    <div class="warning-text">
+                        <i class="bi bi-exclamation-circle-fill me-2"></i>
+                        此操作無法復原！
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-center">
+                    <button type="button" class="btn btn-secondary me-3" data-bs-dismiss="modal">
+                        <i class="bi bi-x-lg me-1"></i>取消
+                    </button>
+                    <button type="button" class="btn btn-danger" id="confirmDeleteBtn">
+                        <i class="bi bi-trash3 me-1"></i>確定刪除
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Bootstrap Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
-    <script>
+     <script>
         // 從 PHP 傳遞分類資料到 JavaScript
         const incomeCategories = <?= json_encode($income_categories) ?>;
         const expenseCategories = <?= json_encode($expense_categories) ?>;
         
+        // 刪除確認變數
+        let deleteTransactionId = null;
+        
         // 確保頁面載入時就應用正確的主題
         document.addEventListener('DOMContentLoaded', function() {
-            // 確保深色模式正確應用到 body
             const savedTheme = localStorage.getItem('theme');
-            if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            
+            if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
                 document.body.classList.add('dark-mode');
                 document.documentElement.classList.add('dark-mode');
+                document.documentElement.style.backgroundColor = '#1a1a1a';
+                document.documentElement.style.color = '#ffffff';
+            } else {
+                document.body.classList.remove('dark-mode');
+                document.documentElement.classList.remove('dark-mode');
+                document.documentElement.style.backgroundColor = '#f8f9fa';
+                document.documentElement.style.color = '#212529';
             }
         });
         
@@ -394,15 +776,19 @@ try {
                 const toastElement = document.getElementById('messageToast');
                 if (toastElement) {
                     const toast = new bootstrap.Toast(toastElement, {
-                        delay: <?= $message_type === 'success' ? '3000' : '5000' ?> // 縮短顯示時間
+                        delay: <?= $message_type === 'success' ? '3000' : '5000' ?>
                     });
                     toast.show();
                     
-                    // 如果是成功訊息，Toast 隱藏後重新載入頁面
                     <?php if ($message_type === 'success'): ?>
                         toastElement.addEventListener('hidden.bs.toast', function() {
-                            // 使用 replace 而不是 href，避免在瀏覽器歷史中留下記錄
-                            window.location.replace('transactions.php');
+                            // 立即應用主題避免閃白
+                            const savedTheme = localStorage.getItem('theme');
+                            if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                                document.documentElement.style.backgroundColor = '#1a1a1a';
+                                document.documentElement.style.color = '#ffffff';
+                            }
+                            location.reload();
                         });
                     <?php endif; ?>
                 }
@@ -415,11 +801,9 @@ try {
             const categorySelect = document.getElementById('category_id');
             const selectedType = typeSelect.value;
             
-            // 清空分類選項
             categorySelect.innerHTML = '';
             
             if (selectedType === '') {
-                // 如果沒有選擇類型，顯示提示
                 const defaultOption = document.createElement('option');
                 defaultOption.value = '';
                 defaultOption.textContent = '請先選擇交易類型';
@@ -429,11 +813,9 @@ try {
                 return;
             }
             
-            // 根據選擇的類型載入對應的分類
             const categories = selectedType === 'Income' ? incomeCategories : expenseCategories;
             
             if (categories.length === 0) {
-                // 如果沒有該類型的分類，顯示提示
                 const noOption = document.createElement('option');
                 noOption.value = '';
                 noOption.textContent = `尚無${selectedType === 'Income' ? '收入' : '支出'}分類，請先新增分類`;
@@ -441,7 +823,6 @@ try {
                 noOption.selected = true;
                 categorySelect.appendChild(noOption);
             } else {
-                // 添加預設選項
                 const defaultOption = document.createElement('option');
                 defaultOption.value = '';
                 defaultOption.textContent = '請選擇分類';
@@ -449,7 +830,6 @@ try {
                 defaultOption.selected = true;
                 categorySelect.appendChild(defaultOption);
                 
-                // 載入分類選項
                 categories.forEach(category => {
                     const option = document.createElement('option');
                     option.value = category.category_id;
@@ -459,18 +839,49 @@ try {
             }
         }
         
+        // 美化的確認刪除交易
+        function confirmDelete(transactionId, type, amount, category, date = '', description = '') {
+            deleteTransactionId = transactionId;
+            
+            // 填充刪除確認模態框的內容
+            document.getElementById('delete-date').textContent = date || '未知';
+            document.getElementById('delete-type').textContent = type;
+            document.getElementById('delete-category').textContent = category;
+            document.getElementById('delete-amount').textContent = '$' + Math.round(parseFloat(amount.replace(/,/g, '')));
+            document.getElementById('delete-description').textContent = description || '無';
+            
+            // 顯示模態框
+            const deleteModal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
+            deleteModal.show();
+        }
+        
+        // 確定刪除按鈕事件
+        document.addEventListener('DOMContentLoaded', function() {
+            const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+            if (confirmDeleteBtn) {
+                confirmDeleteBtn.addEventListener('click', function() {
+                    if (deleteTransactionId) {
+                        // 顯示載入狀態
+                        this.disabled = true;
+                        this.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>刪除中...';
+                        
+                        // 執行刪除
+                        window.location.href = "transactions.php?delete=" + deleteTransactionId;
+                    }
+                });
+            }
+        });
+        
         // 提交交易表單
         function submitTransaction() {
             const form = document.getElementById('transactionForm');
             const submitBtn = event.target;
             
-            // 驗證表單
             if (!form.checkValidity()) {
                 form.reportValidity();
                 return;
             }
             
-            // 顯示載入狀態
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>處理中...';
             
@@ -482,13 +893,11 @@ try {
             const form = document.getElementById('categoryForm');
             const submitBtn = event.target;
             
-            // 驗證表單
             if (!form.checkValidity()) {
                 form.reportValidity();
                 return;
             }
             
-            // 顯示載入狀態
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>處理中...';
             
@@ -497,7 +906,6 @@ try {
         
         // 當頁面載入完成時初始化
         document.addEventListener('DOMContentLoaded', function() {
-            // 初始化分類選項
             filterCategories();
             
             // 當模態框顯示時重置表單
@@ -507,7 +915,6 @@ try {
                 document.getElementById('transaction_date').value = '<?= date('Y-m-d') ?>';
                 filterCategories();
                 
-                // 重置按鈕狀態
                 const submitBtn = document.querySelector('#addTransactionModal .btn-primary');
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '<i class="bi bi-check-lg me-1"></i>新增';
@@ -517,10 +924,16 @@ try {
                 const form = document.getElementById('categoryForm');
                 form.reset();
                 
-                // 重置按鈕狀態
                 const submitBtn = document.querySelector('#addCategoryModal .btn-success');
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '<i class="bi bi-folder-plus me-1"></i>新增';
+            });
+            
+            // 重置刪除確認模態框
+            document.getElementById('deleteConfirmModal').addEventListener('show.bs.modal', function () {
+                const confirmBtn = document.getElementById('confirmDeleteBtn');
+                confirmBtn.disabled = false;
+                confirmBtn.innerHTML = '<i class="bi bi-trash3 me-1"></i>確定刪除';
             });
         });
     </script>

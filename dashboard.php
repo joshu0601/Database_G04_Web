@@ -33,6 +33,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['type'], $_POST['amoun
         $transaction_date = $_POST['transaction_date'];
         $description = $_POST['description'] ?? '';
         
+        if(empty($description)){
+            $description = 'null'; // 如果備註為空，則設為 null
+        }
         // 驗證資料
         if (empty($type) || !in_array($type, ['Income', 'Expense'])) {
             throw new Exception('請選擇正確的交易類型');
@@ -57,13 +60,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['type'], $_POST['amoun
             throw new Exception('選擇的分類無效');
         }
         
+        // 開始交易
+        $db->beginTransaction();
+        
+        // 新增交易記錄
         $stmt = $db->prepare("INSERT INTO transactions (user_id, type, amount, category_id, transaction_date, description) VALUES (?, ?, ?, ?, ?, ?)");
         $stmt->execute([$user_id, $type, $amount, $category_id, $transaction_date, $description]);
         
-        $message = '交易記錄新增成功！';
+        // 更新總資產
+        if ($type === 'Income') {
+            // 收入：增加總資產
+            $update_stmt = $db->prepare("UPDATE users SET total_assets = total_assets + ? WHERE user_id = ?");
+            $update_stmt->execute([$amount, $user_id]);
+        } else {
+            // 支出：減少總資產
+            $update_stmt = $db->prepare("UPDATE users SET total_assets = total_assets - ? WHERE user_id = ?");
+            $update_stmt->execute([$amount, $user_id]);
+        }
+        
+        $db->commit();
+        
+        $message = '交易記錄新增成功！總資產已更新。';
         $message_type = 'success';
         $show_toast = true;
     } catch (Exception $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
         $message = '交易記錄新增失敗：' . $e->getMessage();
         $message_type = 'danger';
         $show_toast = true;
@@ -99,6 +122,16 @@ $stmt = $db->prepare("SELECT goal_name, target_amount, current_amount, remaining
                       LIMIT 2");
 $stmt->execute([$user_name]);
 $saving_goals = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// 查詢總資產信息
+try {
+    $stmt = $db->prepare("SELECT total_assets FROM users WHERE user_id = ?");
+    $stmt->execute([$user_id]);
+    $user_assets = $stmt->fetch(PDO::FETCH_ASSOC);
+    $total_assets = $user_assets ? $user_assets['total_assets'] : 0;
+} catch (Exception $e) {
+    $total_assets = 0;
+}
 
 // 查詢該使用者的所有分類 - 分別查詢收入和支出
 try {
@@ -350,6 +383,28 @@ try {
                                     </div>
                                     <p class="mb-3 opacity-75"><?= date('Y年m月d日') ?> | <?= date('l') ?></p>
                                     
+                                    <!-- 總資產顯示 -->
+                                    <div class="mb-4 p-3 rounded-3" style="background: rgba(255,255,255,0.85); color: #212529;">
+                                        <div class="d-flex align-items-center justify-content-between">
+                                            <div class="d-flex align-items-center">
+                                                <span class="bg-primary bg-opacity-25 rounded-circle d-flex align-items-center justify-content-center me-3" style="width:48px;height:48px;">
+                                                    <i class="bi bi-wallet2 fs-2 text-primary"></i>
+                                                </span>
+                                                <div>
+                                                    <h6 class="mb-0" style="color:#6c757d;">總資產</h6>
+                                                    <h2 class="mb-0 fw-bold" style="color:#0d6efd;">$<?= number_format($total_assets, 0) ?></h2>
+                                                </div>
+                                            </div>
+                                            <div class="text-end">
+                                                <?php if ($total_assets >= 0): ?>
+                                                    <i class="bi bi-trend-up fs-3 text-success"></i>
+                                                <?php else: ?>
+                                                    <i class="bi bi-trend-down fs-3 text-warning"></i>
+                                                <?php endif; ?>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
                                     <div class="mt-4">
                                         <button class="btn btn-light me-2 rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#addTransactionModal">
                                             <i class="bi bi-plus-lg"></i> 新增交易
@@ -376,7 +431,7 @@ try {
                                                         <div class="d-flex justify-content-between align-items-center">
                                                             <span class="fw-medium text-white fw-bold fs-3">收入</span>
                                                             <span class="text-white fw-bold fs-3">
-                                                                $<?= number_format(end($income_data) ?: 0) ?>
+                                                                $<?= number_format(end($income_data) ?: 0, 0) ?>
                                                             </span>
                                                         </div>
                                                     </div>
@@ -395,7 +450,7 @@ try {
                                                         <div class="d-flex justify-content-between align-items-center">
                                                             <span class="fw-medium text-white fw-bold fs-3">支出</span>
                                                             <span class="text-white fw-bold fs-3">
-                                                                $<?= number_format(end($expense_data) ?: 0) ?>
+                                                                $<?= number_format(end($expense_data) ?: 0, 0) ?>
                                                             </span>
                                                         </div>
                                                     </div>
@@ -414,7 +469,7 @@ try {
                                                 <span class="fw-medium text-white fs-3">本月結餘</span>
                                                 <span class="text-white fw-bold fs-3">
                                                     <i class="bi <?= $balanceIcon ?> me-1"></i>
-                                                    $<?= number_format(abs($balance)) ?>
+                                                    $<?= number_format(abs($balance), 0) ?>
                                                     <?= $balance >= 0 ? '' : ' (赤字)' ?>
                                                 </span>
                                             </div>
@@ -479,7 +534,7 @@ try {
                                                 <div class="progress-bar bg-<?= $barColor ?>" role="progressbar" style="width: <?= $rate ?>%" aria-valuenow="<?= $rate ?>" aria-valuemin="0" aria-valuemax="100"></div>
                                             </div>
                                             <div class="goal-info">
-                                                <span>$<?= number_format($goal['current_amount']) ?> / $<?= number_format($goal['target_amount']) ?></span>
+                                                <span>$<?= number_format($goal['current_amount'], 0) ?> / $<?= number_format($goal['target_amount'], 0) ?></span>
                                                 <span>剩餘<?= $goal['remaining_days'] ?>天</span>
                                             </div>
                                         </div>
@@ -530,7 +585,7 @@ try {
                                                             <span class="small"><?= htmlspecialchars($tx['category_name']) ?></span>
                                                         </td>
                                                         <td class="<?= $tx['type'] === 'Income' ? 'text-success' : 'text-danger' ?>">
-                                                            <?= $tx['type'] === 'Income' ? '+' : '-' ?> $<?= number_format($tx['amount'], 2) ?>
+                                                            <?= $tx['type'] === 'Income' ? '+' : '-' ?> $<?= number_format($tx['amount'], 0) ?>
                                                         </td>
                                                         <td class="text-muted small"><?= htmlspecialchars($tx['description']) ?></td>
                                                     </tr>
