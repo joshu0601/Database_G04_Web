@@ -186,7 +186,16 @@ try {
                                 <!-- 使用者頭像 -->
                                 <div class="text-center mb-4">
                                     <div class="profile-avatar">
-                                        <?= strtoupper(substr($user['name'] ?: 'U', 0, 1)) ?>
+                                        <?php
+                                            $name = trim($user['name']);
+                                            if ($name !== '') {
+                                                // 取第一個中文字或英文字母
+                                                $firstChar = mb_substr($name, 0, 1, 'UTF-8');
+                                                echo htmlspecialchars(mb_strtoupper($firstChar, 'UTF-8'));
+                                            } else {
+                                                echo 'U';
+                                            }
+                                        ?>
                                     </div>
                                     <h4 class="mb-1"><?= htmlspecialchars($user['name'] ?: '使用者') ?></h4>
                                     <p class="text-muted"><?= htmlspecialchars($user['user_account']) ?></p>

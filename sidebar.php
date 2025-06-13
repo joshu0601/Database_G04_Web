@@ -652,6 +652,11 @@
                 </a>
             </li>
             <li class="nav-item">
+                <a class="nav-link <?= $current_page === 'feedback' ? 'active' : '' ?>" href="feedback.php">
+                    <i class="bi bi-chat-dots"></i> <strong>系統回報</strong>
+                </a>
+            </li>
+            <li class="nav-item">
                 <a class="nav-link <?= $current_page === 'profile' ? 'active' : '' ?>" href="profile.php">
                     <i class="bi bi-person-circle"></i> <strong>個人設定</strong>
                 </a>

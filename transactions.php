@@ -128,7 +128,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['type'], $_POST['amoun
         $description = $_POST['description'] ?? '';
         
         if(empty($description)){
-            $description = 'null'; // 如果備註為空，則設為 null
+            $description = ''; 
         }
         // 驗證資料
         if (empty($type) || !in_array($type, ['Income', 'Expense'])) {
@@ -253,6 +253,44 @@ try {
     </script>
     
     <style>
+        /* 頁面標題樣式 */
+        .page-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 24px;
+            color: white;
+            padding: 2.5rem;
+            margin-bottom: 2rem;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .page-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 200px;
+            height: 200px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+        }
+        
+        .page-header::after {
+            content: '';
+            position: absolute;
+            bottom: -30%;
+            left: -10%;
+            width: 150px;
+            height: 150px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 40%;
+        }
+        
+        .header-content {
+            position: relative;
+            z-index: 1;
+        }
+        
         .dark-mode {
             background-color: #1a1a1a !important;
             color: #ffffff !important;
@@ -304,6 +342,13 @@ try {
         .action-buttons .btn {
             padding: 0.25rem 0.5rem;
             font-size: 0.875rem;
+        }
+        
+        /* 響應式設計 */
+        @media (max-width: 768px) {
+            .page-header {
+                padding: 2rem 1.5rem;
+            }
         }
         
         /* 美化確認刪除模態框 */
@@ -522,18 +567,33 @@ try {
             
             <!-- 主要內容區 -->
             <div class="col-md-10">
-                <div class="card mb-4">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0"><i class="bi bi-journal-text me-2"></i>交易記錄</h5>
-                        <div>
-                            <button class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#addTransactionModal">
-                                <i class="bi bi-plus-lg"></i> 新增交易
-                            </button>
-                            <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addCategoryModal">
-                                <i class="bi bi-folder-plus"></i> 新增分類
-                            </button>
+                <!-- 頁面標題 -->
+                <div class="page-header">
+                    <div class="header-content">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h1 class="mb-2">
+                                    <i class="bi bi-journal-text me-3"></i>交易記錄
+                                </h1>
+                                <p class="mb-0 opacity-75 fs-5">
+                                    記錄和管理您的收入支出，掌握資金流向
+                                </p>
+                            </div>
+                            <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                                <div class="d-flex gap-2 justify-content-md-end justify-content-center">
+                                    <button class="btn btn-outline-light btn-lg" data-bs-toggle="modal" data-bs-target="#addCategoryModal">
+                                        <i class="bi bi-folder-plus me-2"></i>新增分類
+                                    </button>
+                                    <button class="btn btn-light btn-lg" data-bs-toggle="modal" data-bs-target="#addTransactionModal">
+                                        <i class="bi bi-plus-circle me-2"></i>新增交易
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
+                </div>
+
+                <div class="card mb-4">
                     <div class="card-body p-0">
                         <?php if (!empty($all_transactions)): ?>
                             <div class="table-responsive">

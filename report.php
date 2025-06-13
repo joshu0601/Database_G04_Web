@@ -755,7 +755,7 @@ try {
                             <p class="mb-0 opacity-75">查看您的財務狀況、管理收支分類並分析各分類的詳細統計</p>
                         </div>
                         <div class="col-md-4">
-                            <form method="GET" class="d-flex align-items-center">
+                            <form method="GET" class="d-flex align-items-center justify-content-end">
                                 <label class="me-2 fw-bold">查看月份：</label>
                                 <select name="year" class="form-select form-select-sm me-2" style="width: auto;">
                                     <?php for ($y = $current_year; $y >= $current_year - 2; $y--): ?>
@@ -805,7 +805,7 @@ try {
                 </div>
 
                 <!-- 操作按鈕 -->
-                <div class="card mb-4">
+                <!-- <div class="card mb-4">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">
                             <i class="bi bi-tags me-2"></i>
@@ -815,7 +815,7 @@ try {
                             <i class="bi bi-plus-lg"></i> 新增分類
                         </button>
                     </div>
-                </div>
+                </div> -->
 
                 <!-- 分類列表 -->
                 <?php if (!empty($categories)): ?>

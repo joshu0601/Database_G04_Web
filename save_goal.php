@@ -191,6 +191,51 @@ try {
     </script>
     
     <style>
+        /* 頁面標題樣式 */
+        .page-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 24px;
+            color: white;
+            padding: 2.5rem;
+            margin-bottom: 2rem;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .page-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 200px;
+            height: 200px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+        }
+        
+        .page-header::after {
+            content: '';
+            position: absolute;
+            bottom: -30%;
+            left: -10%;
+            width: 150px;
+            height: 150px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 40%;
+        }
+        
+        .header-content {
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* 響應式設計 */
+        @media (max-width: 768px) {
+            .page-header {
+                padding: 2rem 1.5rem;
+            }
+        }
+        
         .dark-mode {
             background-color: #1a1a1a !important;
             color: #ffffff !important;
@@ -288,6 +333,127 @@ try {
         .dark-mode .card .fw-bold {
             color: inherit !important;
         }
+        
+        /* 儲蓄目標特定樣式 */
+        .goal-card {
+            border: none;
+            border-radius: 16px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .goal-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+        
+        .goal-card.completed {
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+            border: 2px solid #28a745;
+        }
+        
+        .goal-progress {
+            height: 10px;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #e9ecef;
+        }
+        
+        .goal-progress .progress-bar {
+            border-radius: 8px;
+            transition: width 1s ease-in-out;
+        }
+        
+        /* 深色模式下的卡片樣式 */
+        .dark-mode .card {
+            background-color: #2d2d2d !important;
+            border-color: #404040 !important;
+            color: #ffffff !important;
+        }
+        
+        .dark-mode .card-header {
+            background-color: #3d3d3d !important;
+            border-color: #404040 !important;
+            color: #ffffff !important;
+        }
+        
+        .dark-mode .card-footer {
+            background-color: #3d3d3d !important;
+            border-color: #404040 !important;
+        }
+        
+        .dark-mode .goal-card.completed {
+            background: linear-gradient(135deg, #1e4620 0%, #2d5a2f 100%);
+            border-color: #28a745;
+        }
+        
+        .dark-mode .goal-progress {
+            background: #404040;
+        }
+        
+        /* 表單樣式美化 */
+        .form-card {
+            border: none;
+            border-radius: 20px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+            background: white;
+        }
+        
+        .form-header {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            border-radius: 20px 20px 0 0;
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .form-body {
+            padding: 2rem;
+        }
+        
+        .form-control, .form-select {
+            border-radius: 12px;
+            border: 2px solid #e2e8f0;
+            padding: 0.75rem 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .form-control:focus, .form-select:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+        
+        /* 深色模式下的表單樣式 */
+        .dark-mode .form-card {
+            background: #2d2d2d;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        }
+        
+        .dark-mode .form-header {
+            background: linear-gradient(135deg, #374151 0%, #4b5563 100%);
+            border-color: #4b5563;
+        }
+        
+        .dark-mode .form-control, .dark-mode .form-select {
+            background-color: #404040;
+            border-color: #555555;
+            color: #ffffff;
+        }
+        
+        .dark-mode .form-control:focus, .dark-mode .form-select:focus {
+            background-color: #404040;
+            border-color: #667eea;
+            color: #ffffff;
+        }
+        
+        .dark-mode .input-group-text {
+            background-color: #404040;
+            border-color: #555555;
+            color: #ffffff;
+        }
+        
+        .dark-mode .form-label {
+            color: #ffffff;
+        }
     </style>
 </head>
 <body>
@@ -320,13 +486,24 @@ try {
             
             <!-- 主要內容區 -->
             <div class="col-md-10">
-                <!-- 頁面標題與按鈕 -->
-                <div class="card mb-4">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0"><i class="bi bi-bullseye me-2"></i>儲蓄目標管理</h5>
-                        <button class="btn btn-success" data-bs-toggle="collapse" data-bs-target="#addGoalForm">
-                            <i class="bi bi-plus-lg"></i> 新增儲蓄目標
-                        </button>
+                <!-- 頁面標題 -->
+                <div class="page-header">
+                    <div class="header-content">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h1 class="mb-2">
+                                    <i class="bi bi-bullseye me-3"></i>儲蓄目標管理
+                                </h1>
+                                <p class="mb-0 opacity-75 fs-5">
+                                    設定和追蹤您的儲蓄目標，實現財務夢想
+                                </p>
+                            </div>
+                            <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                                <button class="btn btn-light btn-lg" data-bs-toggle="collapse" data-bs-target="#addGoalForm" aria-expanded="false">
+                                    <i class="bi bi-plus-circle me-2"></i>新增儲蓄目標
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

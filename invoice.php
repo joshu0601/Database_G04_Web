@@ -195,6 +195,136 @@ try {
     </script>
     
     <style>
+        /* 頁面標題樣式 */
+        .page-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 24px;
+            color: white;
+            padding: 2.5rem;
+            margin-bottom: 2rem;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .page-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 200px;
+            height: 200px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+        }
+        
+        .page-header::after {
+            content: '';
+            position: absolute;
+            bottom: -30%;
+            left: -10%;
+            width: 150px;
+            height: 150px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 40%;
+        }
+        
+        .header-content {
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* 表單樣式美化 */
+        .form-card {
+            border: none;
+            border-radius: 24px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            background: white;
+        }
+        
+        .form-header {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            border-radius: 24px 24px 0 0;
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .form-body {
+            padding: 2rem;
+        }
+        
+        .form-control, .form-select {
+            border-radius: 12px;
+            border: 2px solid #e2e8f0;
+            padding: 0.75rem 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .form-control:focus, .form-select:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+        
+        /* 發票列表卡片樣式 */
+        .invoice-list-card {
+            border: none;
+            border-radius: 20px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+            margin-top: 2rem;
+        }
+        
+        .invoice-list-header {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            border-radius: 20px 20px 0 0;
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        /* 發票號碼樣式 */
+        .invoice-number {
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+        
+        /* 交易金額樣式 */
+        .transaction-expense {
+            color: #dc3545 !important;
+            font-weight: 600;
+        }
+        
+        /* 空狀態樣式 */
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            border-radius: 20px;
+        }
+        
+        .empty-icon {
+            font-size: 5rem;
+            color: #cbd5e1;
+            margin-bottom: 1.5rem;
+        }
+        
+        /* 響應式設計 */
+        @media (max-width: 768px) {
+            .page-header {
+                padding: 2rem 1.5rem;
+            }
+            
+            .form-header, .form-body {
+                padding: 1.5rem;
+            }
+            
+            .invoice-list-header {
+                padding: 1.5rem;
+            }
+        }
+        
         .dark-mode {
             background-color: #1a1a1a !important;
             color: #ffffff !important;
@@ -208,6 +338,99 @@ try {
         body {
             background-color: #f8f9fa;
             color: #212529;
+        }
+        
+        /* 深色模式下的表單樣式 */
+        .dark-mode .form-card {
+            background: #1f2937;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        .dark-mode .form-header {
+            background: linear-gradient(135deg, #374151 0%, #4b5563 100%);
+            border-color: #4b5563;
+        }
+        
+        .dark-mode .invoice-list-card {
+            background: #1f2937;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        }
+        
+        .dark-mode .invoice-list-header {
+            background: linear-gradient(135deg, #374151 0%, #4b5563 100%);
+            border-color: #4b5563;
+        }
+        
+        .dark-mode .form-control, .dark-mode .form-select {
+            background-color: #404040;
+            border-color: #555555;
+            color: #ffffff;
+        }
+        
+        .dark-mode .form-control:focus, .dark-mode .form-select:focus {
+            background-color: #404040;
+            border-color: #667eea;
+            color: #ffffff;
+        }
+        
+        .dark-mode .input-group-text {
+            background-color: #404040;
+            border-color: #555555;
+            color: #ffffff;
+        }
+        
+        .dark-mode .form-label {
+            color: #ffffff;
+        }
+        
+        .dark-mode .form-text {
+            color: #adb5bd;
+        }
+        
+        .dark-mode .table {
+            color: #ffffff;
+        }
+        
+        .dark-mode .table-light {
+            background-color: #374151;
+            color: #ffffff;
+        }
+        
+        .dark-mode .empty-state {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+        }
+        
+        .dark-mode .invoice-number {
+            color: #93c5fd;
+            background: rgba(147, 197, 253, 0.1);
+        }
+        
+        .dark-mode .transaction-expense {
+            color: #f87171 !important;
+        }
+        
+        .dark-mode .text-muted {
+            color: #9ca3af !important;
+        }
+        
+        .dark-mode .badge.bg-danger {
+            background-color: #dc2626 !important;
+        }
+        
+        /* Toast 深色模式 */
+        .dark-mode .toast {
+            background-color: #374151;
+            color: #ffffff;
+        }
+        
+        .dark-mode .toast-header {
+            background-color: #4b5563;
+            color: #ffffff;
+            border-bottom-color: #6b7280;
+        }
+        
+        .dark-mode .btn-close {
+            filter: invert(1) grayscale(100%) brightness(200%);
         }
     </style>
 </head>
@@ -241,23 +464,36 @@ try {
             
             <!-- 主要內容區 -->
             <div class="col-md-10">
-                <!-- 頁面標題與按鈕 -->
-                <div class="card mb-4">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0"><i class="bi bi-receipt me-2"></i>發票管理</h5>
-                        <button class="btn btn-success" data-bs-toggle="collapse" data-bs-target="#invoiceForm">
-                            <i class="bi bi-plus-lg"></i> 新增發票
-                        </button>
+                <!-- 頁面標題 -->
+                <div class="page-header">
+                    <div class="header-content">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h1 class="mb-2">
+                                    <i class="bi bi-receipt me-3"></i>發票管理
+                                </h1>
+                                <p class="mb-0 opacity-75 fs-5">
+                                    記錄電子發票，自動建立交易並管理支出憑證
+                                </p>
+                            </div>
+                            <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                                <button class="btn btn-light btn-lg" data-bs-toggle="collapse" data-bs-target="#invoiceForm" aria-expanded="false">
+                                    <i class="bi bi-plus-circle me-2"></i>新增發票
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 <!-- 新增發票表單 -->
                 <div class="collapse mb-4" id="invoiceForm">
-                    <div class="card">
-                        <div class="card-header">
-                            <h6 class="mb-0"><i class="bi bi-plus-circle me-2"></i>新增發票記錄</h6>
+                    <div class="form-card">
+                        <div class="form-header">
+                            <h5 class="mb-0">
+                                <i class="bi bi-plus-circle me-2"></i>新增發票記錄
+                            </h5>
                         </div>
-                        <div class="card-body">
+                        <div class="form-body">
                             <form method="POST" id="addInvoiceForm">
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
@@ -327,9 +563,11 @@ try {
                 </div>
 
                 <!-- 發票列表 -->
-                <div class="card">
-                    <div class="card-header">
-                        <h6 class="mb-0"><i class="bi bi-list-ul me-2"></i>發票記錄列表</h6>
+                <div class="invoice-list-card">
+                    <div class="invoice-list-header">
+                        <h5 class="mb-0">
+                            <i class="bi bi-list-ul me-2"></i>發票記錄列表
+                        </h5>
                     </div>
                     <div class="card-body p-0">
                         <?php if (!empty($invoices)): ?>
@@ -350,7 +588,7 @@ try {
                                         <?php foreach ($invoices as $invoice): ?>
                                             <tr>
                                                 <td>
-                                                    <span class="font-monospace fw-bold">
+                                                    <span class="invoice-number">
                                                         <?= htmlspecialchars($invoice['invoice_number']) ?>
                                                     </span>
                                                 </td>
@@ -377,12 +615,14 @@ try {
                                 </table>
                             </div>
                         <?php else: ?>
-                            <div class="text-center p-5">
-                                <i class="bi bi-receipt fs-1 text-muted d-block mb-3"></i>
-                                <h5 class="text-muted">尚無發票記錄</h5>
-                                <p class="text-muted">開始新增您的第一張發票吧！</p>
-                                <button class="btn btn-success" data-bs-toggle="collapse" data-bs-target="#invoiceForm">
-                                    <i class="bi bi-plus-lg"></i> 新增發票
+                            <div class="empty-state">
+                                <div class="empty-icon">
+                                    <i class="bi bi-receipt"></i>
+                                </div>
+                                <h5 class="text-muted mb-3">尚無發票記錄</h5>
+                                <p class="text-muted mb-4">開始新增您的第一張發票吧！</p>
+                                <button class="btn btn-primary btn-lg" data-bs-toggle="collapse" data-bs-target="#invoiceForm">
+                                    <i class="bi bi-plus-circle me-2"></i>新增發票
                                 </button>
                             </div>
                         <?php endif; ?>
