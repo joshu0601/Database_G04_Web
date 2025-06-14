@@ -12,17 +12,52 @@ $current_page = 'managerdashboard';
 $db = new PDO('mysql:host=database-g04.cj48gosu0lpo.ap-northeast-1.rds.amazonaws.com;dbname=accounting_system;charset=utf8', 'manager', '5678');
 $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
+// 處理封鎖請求
+if (isset($_POST['block_user'])) {
+    $user_id = $_POST['user_id'];
+    $user_name = $_POST['user_name'];
+    $reason = $_POST['reason'];
+    $manager_id = $_SESSION['admin_id'];
+    
+    try {
+        // 檢查用戶是否已經在黑名單中
+        $check_stmt = $db->prepare("SELECT COUNT(*) FROM blacklist WHERE user_id = ?");
+        $check_stmt->execute([$user_id]);
+        $already_blocked = $check_stmt->fetchColumn() > 0;
+        
+        if (!$already_blocked) {
+            // 新增黑名單紀錄
+            $stmt = $db->prepare("INSERT INTO blacklist (user_id, blocked_by, reason, blocked_at) VALUES (?, ?, ?, NOW())");
+            $stmt->execute([$user_id, $manager_id, $reason]);
+            
+            // 設置提示訊息
+            $_SESSION['success_message'] = "用戶 $user_name (ID: $user_id) 已成功加入黑名單";
+        } else {
+            $_SESSION['error_message'] = "用戶 $user_name (ID: $user_id) 已經在黑名單中";
+        }
+    } catch (Exception $e) {
+        $_SESSION['error_message'] = "封鎖用戶時發生錯誤：" . $e->getMessage();
+    }
+    
+    // 重定向回當前頁面
+    header("Location: " . $_SERVER['PHP_SELF'] . (isset($_GET['search']) ? "?search=" . urlencode($_GET['search']) : ""));
+    exit;
+}
+
 // 處理搜尋條件
 $keyword = isset($_GET['search']) ? trim($_GET['search']) : '';
-$sql = "SELECT * FROM system_overview";
+$sql = "SELECT so.*, 
+        CASE WHEN bl.user_id IS NOT NULL THEN 1 ELSE 0 END AS is_blocked
+        FROM system_overview so
+        LEFT JOIN blacklist bl ON so.user_id = bl.user_id";
 $params = [];
 
 if ($keyword !== '') {
-    $sql .= " WHERE user_name LIKE :kw OR transaction_date LIKE :kw";
+    $sql .= " WHERE (so.user_name LIKE :kw OR so.transaction_date LIKE :kw)";
     $params[':kw'] = "%$keyword%";
 }
 
-$sql .= " ORDER BY transaction_date DESC,user_id ASC";
+$sql .= " GROUP BY so.user_id, so.transaction_date ORDER BY so.transaction_date DESC, so.user_id ASC";
 $stmt = $db->prepare($sql);
 $stmt->execute($params);
 $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -230,14 +265,89 @@ try {
         .stats-card.users .stats-icon { color: #007bff; }
         .stats-card.transactions .stats-icon { color: #28a745; }
         .stats-card.revenue .stats-icon { color: #ffc107; }
-        .stats-card.reports .stats-icon { color: #dc3545; }
-        .stats-card.blacklist .stats-icon { color: #e74c3c; } /* 新增黑名單卡片顏色 */
+        .stats-card.reports .stats-icon { color:rgb(53, 220, 59); }
+        .stats-card.blacklist .stats-icon { color: #e74c3c; }
         
         /* 徽章樣式 */
         .badge {
             padding: 6px 10px;
             font-weight: 500;
             border-radius: 6px;
+        }
+        
+        /* 操作按鈕樣式 */
+        .action-column {
+            width: 100px;
+            text-align: center;
+        }
+        
+        .btn-action {
+            width: 38px;
+            height: 38px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            margin: 0 2px;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-action i {
+            font-size: 1.1rem;
+        }
+        
+        .btn-block {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            border: none;
+            color: white;
+        }
+        
+        .btn-block:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 10px rgba(231, 76, 60, 0.4);
+            color: white;
+        }
+        
+        .btn-blocked {
+            background: #6c757d;
+            border: none;
+            color: white;
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+        
+        /* 訊息提示樣式 */
+        .alert-success {
+            background: linear-gradient(135deg, rgba(40, 167, 69, 0.95) 0%, rgba(32, 134, 55, 0.95) 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+        }
+        
+        .alert-danger {
+            background: linear-gradient(135deg, rgba(220, 53, 69, 0.95) 0%, rgba(189, 33, 48, 0.95) 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(220, 53, 69, 0.3);
+        }
+        
+        /* 模態框樣式 */
+        .modal-content {
+            border-radius: 15px;
+            overflow: hidden;
+        }
+        
+        .modal-header {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            color: white;
+            border: none;
+        }
+        
+        .modal-body {
+            padding: 1.5rem;
         }
         
         /* 深色模式樣式 */
@@ -343,6 +453,23 @@ try {
             color: #b0b0b0 !important;
         }
         
+        /* 深色模式模態框 */
+        .dark-mode .modal-content {
+            background-color: #2d2d2d;
+            color: #ffffff;
+            border: 1px solid #444;
+        }
+        
+        .dark-mode .modal-body {
+            background-color: #2d2d2d;
+            color: #ffffff;
+        }
+        
+        .dark-mode .modal-footer {
+            background-color: #333;
+            border-top: 1px solid #444;
+        }
+        
         /* 響應式設計 */
         @media (max-width: 768px) {
             .dashboard-container {
@@ -356,6 +483,14 @@ try {
             .stats-card {
                 margin-bottom: 15px;
             }
+            
+            .action-column {
+                width: 70px;
+            }
+        }
+        /* 強制模態框用戶名稱顯示為黑色 */
+        #displayUserName {
+            color: #000 !important;
         }
     </style>
 </head>
@@ -368,6 +503,25 @@ try {
             ?>
             
             <div class="main-content-container">
+                <!-- 訊息提示 -->
+                <?php if (isset($_SESSION['success_message'])): ?>
+                    <div class="alert alert-success alert-dismissible fade show" role="alert">
+                        <i class="bi bi-check-circle-fill me-2"></i>
+                        <?= htmlspecialchars($_SESSION['success_message']) ?>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                    <?php unset($_SESSION['success_message']); ?>
+                <?php endif; ?>
+                
+                <?php if (isset($_SESSION['error_message'])): ?>
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        <?= htmlspecialchars($_SESSION['error_message']) ?>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                    <?php unset($_SESSION['error_message']); ?>
+                <?php endif; ?>
+                
                 <!-- 頁面標題 -->
                 <div class="page-header">
                     <h2 class="page-title">
@@ -459,12 +613,13 @@ try {
                                     <th><i class="bi bi-person me-2"></i>使用者名稱</th>
                                     <th><i class="bi bi-calendar me-2"></i>交易日期</th>
                                     <th><i class="bi bi-bar-chart me-2"></i>當日交易筆數</th>
+                                    <th class="action-column"><i class="bi bi-shield-fill me-2"></i>操作</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php if (empty($results)): ?>
                                     <tr>
-                                        <td colspan="4" class="empty-state">
+                                        <td colspan="5" class="empty-state">
                                             <i class="bi bi-inbox"></i>
                                             <p class="mb-0">查無相關資料</p>
                                             <?php if ($keyword): ?>
@@ -490,6 +645,23 @@ try {
                                                     <?= htmlspecialchars($row['daily_transaction_count']) ?> 筆
                                                 </span>
                                             </td>
+                                            <td class="action-column">
+                                                <?php if ($row['is_blocked']): ?>
+                                                    <button type="button" class="btn btn-action btn-blocked" disabled title="已封鎖">
+                                                        <i class="bi bi-person-x-fill"></i>
+                                                    </button>
+                                                <?php else: ?>
+                                                    <button type="button" 
+                                                            class="btn btn-action btn-block block-user" 
+                                                            data-bs-toggle="modal" 
+                                                            data-bs-target="#blockModal"
+                                                            data-id="<?= $row['user_id'] ?>"
+                                                            data-name="<?= htmlspecialchars($row['user_name']) ?>"
+                                                            title="封鎖用戶">
+                                                        <i class="bi bi-person-x"></i>
+                                                    </button>
+                                                <?php endif; ?>
+                                            </td>
                                         </tr>
                                     <?php endforeach; ?>
                                 <?php endif; ?>
@@ -514,7 +686,86 @@ try {
         </div>
     </div>
 
+    <!-- 封鎖用戶模態框 -->
+    <div class="modal fade" id="blockModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-person-x-fill me-2"></i>
+                        封鎖用戶
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="blockForm" method="POST">
+                        <input type="hidden" name="user_id" id="blockUserId">
+                        <input type="hidden" name="user_name" id="blockUserName">
+                        
+                        <div class="mb-3">
+                            <label class="form-label">您即將封鎖用戶：</label>
+                            <div class="d-flex align-items-center p-3 mb-3 bg-light rounded">
+                                <i class="bi bi-person-circle fs-4 me-3 text-primary"></i>
+                                <div>
+                                    <strong id="displayUserName"></strong>
+                                    <div class="small text-muted">用戶 ID: <span id="displayUserId"></span></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="reason" class="form-label">封鎖原因</label>
+                            <textarea class="form-control" id="reason" name="reason" rows="3" required placeholder="請輸入封鎖此用戶的原因..."></textarea>
+                        </div>
+                        
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            封鎖後，該用戶將無法登入系統。
+                        </div>
+                        
+                        <div class="d-flex justify-content-end gap-2">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                            <button type="submit" name="block_user" class="btn btn-danger">
+                                <i class="bi bi-shield-x me-2"></i>確認封鎖
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Bootstrap JS Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // 封鎖用戶模態框
+        document.addEventListener('DOMContentLoaded', function() {
+            const blockButtons = document.querySelectorAll('.block-user');
+            
+            blockButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const userId = this.getAttribute('data-id');
+                    const userName = this.getAttribute('data-name');
+                    
+                    document.getElementById('blockUserId').value = userId;
+                    document.getElementById('blockUserName').value = userName;
+                    document.getElementById('displayUserId').textContent = userId;
+                    document.getElementById('displayUserName').textContent = userName;
+                });
+            });
+            
+            // 自動隱藏提示訊息
+            const alerts = document.querySelectorAll('.alert-dismissible');
+            alerts.forEach(alert => {
+                setTimeout(() => {
+                    const closeButton = alert.querySelector('.btn-close');
+                    if (closeButton) {
+                        closeButton.click();
+                    }
+                }, 5000); // 5秒後自動隱藏
+            });
+        });
+    </script>
 </body>
 </html>

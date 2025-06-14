@@ -409,7 +409,7 @@ try {
                                         <button class="btn btn-light me-2 rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#addTransactionModal">
                                             <i class="bi bi-plus-lg"></i> 新增交易
                                         </button>
-                                        <a href="reports.php" class="btn btn-outline-light rounded-pill px-4">
+                                        <a href="report.php" class="btn btn-outline-light rounded-pill px-4">
                                             <i class="bi bi-bar-chart"></i> 檢視報表
                                         </a>
                                     </div>

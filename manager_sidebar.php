@@ -146,11 +146,6 @@
         font-size: 0.9rem;
     }
     
-    .stats-card.users .stats-icon { color: #007bff; }
-    .stats-card.transactions .stats-icon { color: #28a745; }
-    .stats-card.revenue .stats-icon { color: #ffc107; }
-    .stats-card.reports .stats-icon { color: #dc3545; }
-    
     /* 快速統計調整 */
     .manager-sidebar .mt-4 h6 {
         font-size: 0.9rem;

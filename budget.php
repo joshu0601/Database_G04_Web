@@ -156,8 +156,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['sync_budgets'])) {
         // 計算該月份該分類的實際支出
         $spent_stmt = $db->prepare("
             SELECT COALESCE(SUM(amount), 0) as spent_amount 
-            FROM transactions 
-            WHERE user_id = ? AND category_id = ? AND YEAR(date) = ? AND MONTH(date) = ? AND type = 'Expense'
+            FROM transactions  t
+            WHERE user_id = ? AND category_id = ? AND YEAR(t.transaction_date) = ? AND MONTH(t.transaction_date) = ? AND type = 'Expense'
         ");
         $spent_stmt->execute([$user_id, $category_id, $year, $month]);
         $spent_result = $spent_stmt->fetch(PDO::FETCH_ASSOC);

@@ -473,8 +473,8 @@ try {
         .report-card:hover {
             transform: translateY(-5px);
             box-shadow: 
-                0 12px 40px rgba(0, 0, 0, 0.12),
-                0 4px 16px rgba(0, 0, 0, 0.1);
+                0 12px 40px rgba(0, 0, 0, 0.3),
+                0 4px 16px rgba(0, 0, 0, 0.2);
         }
         
         .report-card:hover::before {
@@ -590,6 +590,114 @@ try {
             color: #86efac;
             border-color: #16a34a;
             box-shadow: 0 2px 8px rgba(134, 239, 172, 0.2);
+        }
+        
+        /* 深色模式下的表單樣式修改 */
+        .dark-mode .form-card {
+            background-color: #2a2a2a;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .dark-mode .form-header {
+            background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
+            border-bottom: 1px solid #4b5563;
+            color: #e5e7eb;
+        }
+
+        .dark-mode .form-body {
+            background-color: #2a2a2a;
+            color: #e5e7eb;
+        }
+
+        .dark-mode .form-control, 
+        .dark-mode .form-select {
+            background-color: #374151;
+            border-color: #4b5563;
+            color: #e5e7eb;
+        }
+
+        .dark-mode .form-control:focus, 
+        .dark-mode .form-select:focus {
+            background-color: #374151;
+            border-color: #60a5fa;
+            box-shadow: 0 0 0 0.2rem rgba(96, 165, 250, 0.25);
+            color: #ffffff;
+        }
+
+        .dark-mode .form-control::placeholder, 
+        .dark-mode .form-select::placeholder {
+            color: #9ca3af;
+        }
+
+        .dark-mode .form-text {
+            color: #9ca3af;
+        }
+
+        .dark-mode .form-text.text-warning {
+            color: #fbbf24 !important;
+        }
+
+        /* 深色模式下的表單按鈕 */
+        .dark-mode .btn-primary {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            border-color: #2563eb;
+            color: #ffffff;
+        }
+
+        .dark-mode .btn-primary:hover {
+            background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+            border-color: #3b82f6;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+
+        .dark-mode .btn-outline-secondary {
+            color: #d1d5db;
+            border-color: #6b7280;
+            background-color: transparent;
+        }
+
+        .dark-mode .btn-outline-secondary:hover {
+            background-color: #4b5563;
+            border-color: #9ca3af;
+            color: #f9fafb;
+        }
+
+        /* 深色模式下的摺疊按鈕 */
+        .dark-mode .btn-light {
+            background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
+            border-color: #6b7280;
+            color: #f9fafb;
+        }
+
+        .dark-mode .btn-light:hover {
+            background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+            border-color: #9ca3af;
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(107, 114, 128, 0.4);
+        }
+
+        /* 深色模式下的選項文字顏色 */
+        .dark-mode select option {
+            background-color: #1f2937;
+            color: #e5e7eb;
+        }
+
+        /* 深色模式下的空狀態樣式 */
+        .dark-mode .empty-state {
+            color: #e5e7eb;
+        }
+
+        .dark-mode .empty-icon i {
+            color: #60a5fa;
+            opacity: 0.6;
+        }
+
+        .dark-mode .empty-title {
+            color: #f9fafb;
+        }
+
+        .dark-mode .empty-description {
+            color: #d1d5db;
         }
     </style>
 </head>

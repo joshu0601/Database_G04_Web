@@ -848,7 +848,7 @@ try {
                                 document.documentElement.style.backgroundColor = '#1a1a1a';
                                 document.documentElement.style.color = '#ffffff';
                             }
-                            location.reload();
+                            //location.reload();
                         });
                     <?php endif; ?>
                 }
