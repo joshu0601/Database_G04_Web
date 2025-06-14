@@ -1,8 +1,16 @@
-# 記帳管理系統
+# 記帳管理系統(Web)
 
 一個功能完善的個人財務追蹤與管理系統，提供交易記錄、預算規劃、發票管理、儲蓄目標設定等功能，支援深色/淺色模式切換。
 
 ![管理系統截圖](screenshots/dashboard.png)
+
+## 系統展示影片
+
+觀看我們的系統 DEMO 影片，了解系統的完整功能與操作流程：
+
+[![記帳管理系統演示](https://img.youtube.com/vi/NOTtFg97ZWU/0.jpg)](https://youtu.be/NOTtFg97ZWU)
+
+[點擊這裡觀看完整影片](https://youtu.be/NOTtFg97ZWU)
 
 ## 功能特色
 
@@ -127,6 +135,16 @@
 ![管理者儀表板](screenshots/admin_dashboard.png)
 ![黑名單管理](screenshots/blacklist_management.png)
 ![回饋處理](screenshots/feedback_management.png)
+
+## 影片導覽
+
+以下是系統各主要功能的操作示範影片：
+
+1. [用戶登入與儀表板操作](https://youtu.be/NOTtFg97ZWU?t=25) - 了解如何登入系統並使用儀表板
+2. [交易記錄管理](https://youtu.be/NOTtFg97ZWU?t=95) - 學習如何新增、編輯和管理交易記錄
+3. [預算設定與追蹤](https://youtu.be/NOTtFg97ZWU?t=180) - 掌握預算管理功能
+4. [發票整合功能](https://youtu.be/NOTtFg97ZWU?t=240) - 電子發票管理與整合示範
+5. [管理者功能展示](https://youtu.be/NOTtFg97ZWU?t=350) - 查看管理者介面與功能操作
 
 
 
