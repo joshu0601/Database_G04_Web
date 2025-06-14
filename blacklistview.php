@@ -7,25 +7,45 @@ if (!isset($_SESSION['admin_id'])) {
 }
 
 // 設定當前頁面標識
-$current_page = 'user_feedback';
+$current_page = 'user_management';
 
 $db = new PDO('mysql:host=database-g04.cj48gosu0lpo.ap-northeast-1.rds.amazonaws.com;dbname=accounting_system;charset=utf8', 'manager', '5678');
 $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-$stmt = $db->query("SELECT * FROM feedback_bug_reports ORDER BY created_at DESC");
-$reports = $stmt->fetchAll(PDO::FETCH_ASSOC);
+// 處理刪除請求
+if (isset($_POST['delete_id'])) {
+    $delete_id = $_POST['delete_id'];
+    $stmt = $db->prepare("DELETE FROM blacklist WHERE blacklist_id = ?");
+    $stmt->execute([$delete_id]);
+    header("Location: " . $_SERVER['PHP_SELF']);
+    exit;
+}
+
+// 搜尋功能
+$search_sql = "SELECT * FROM blacklist_monitor";
+$search_params = [];
+if (!empty($_GET['search'])) {
+    $search = '%' . $_GET['search'] . '%';
+    $search_sql .= " WHERE user_id LIKE ? OR user_name LIKE ?";
+    $search_params = [$search, $search];
+}
+$search_sql .= " ORDER BY blacklist_id ASC";
+
+$stmt = $db->prepare($search_sql);
+$stmt->execute($search_params);
+$blacklist = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // 統計數據
-$bugCount = $db->query("SELECT COUNT(*) FROM feedback_bug_reports WHERE report_type = 'Bug'")->fetchColumn();
-$suggestionCount = $db->query("SELECT COUNT(*) FROM feedback_bug_reports WHERE report_type = 'Suggestion'")->fetchColumn();
-$totalCount = count($reports);
+$totalBlocked = count($blacklist);
+$uniqueUsers = $db->query("SELECT COUNT(DISTINCT user_id) FROM blacklist_monitor")->fetchColumn();
+$recentBlocked = $db->query("SELECT COUNT(*) FROM blacklist_monitor WHERE blocked_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)")->fetchColumn();
 ?>
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>用戶回饋管理 - 管理者後台</title>
+    <title>黑名單管理 - 管理者後台</title>
     <link rel="icon" type="image/png" href="icon.png">
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -108,23 +128,6 @@ $totalCount = count($reports);
             background-color: rgba(102, 126, 234, 0.1);
         }
         
-        /* 回報類型徽章 */
-        .badge-bug {
-            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
-        }
-        
-        .badge-suggestion {
-            background: linear-gradient(135deg, #28a745 0%, #218838 100%);
-        }
-        
-        .content-cell {
-            max-width: 300px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: normal;
-            text-align: left;
-        }
-        
         /* 操作欄位樣式 - 加寬並美化 */
         .action-column {
             width: 100px !important; /* 加寬操作欄位 */
@@ -147,15 +150,53 @@ $totalCount = count($reports);
             font-size: 1.1rem;
         }
         
-        .btn-view {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        .btn-delete {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
             border: none;
             color: white;
         }
         
-        .btn-view:hover {
+        .btn-delete:hover {
             transform: translateY(-3px);
-            box-shadow: 0 4px 10px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 4px 10px rgba(231, 76, 60, 0.4);
+            color: white;
+        }
+        
+        /* 搜尋表單 */
+        .search-form {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+            box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.05);
+        }
+        
+        .form-control {
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 10px 15px;
+            height: auto;
+            transition: all 0.3s ease;
+        }
+        
+        .form-control:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+        }
+        
+        .btn-search {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            font-weight: 600;
+            padding: 10px 25px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-search:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
             color: white;
         }
         
@@ -190,9 +231,38 @@ $totalCount = count($reports);
             font-size: 0.9rem;
         }
         
-        .stats-card.bugs .stats-icon { color: #dc3545; }
-        .stats-card.suggestions .stats-icon { color: #28a745; }
-        .stats-card.total .stats-icon { color: #007bff; }
+        .stats-card.total .stats-icon { color: #e74c3c; }
+        .stats-card.unique .stats-icon { color: #3498db; }
+        .stats-card.recent .stats-icon { color: #f39c12; }
+        
+        /* 空資料狀態 */
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+        }
+        
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+        
+        /* 刪除確認模態框 */
+        .modal-content {
+            border-radius: 15px;
+            overflow: hidden;
+        }
+        
+        .modal-header {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            color: white;
+            border: none;
+        }
+        
+        .modal-body {
+            padding: 1.5rem;
+        }
         
         /* 深色模式樣式 */
         body.dark-mode {
@@ -252,39 +322,34 @@ $totalCount = count($reports);
             border-bottom-color: #404040;
         }
 
-        /* 空資料狀態 */
-        .empty-state {
-            text-align: center;
-            padding: 40px;
-            color: #6c757d;
+        /* 深色模式搜尋表單 */
+        .dark-mode .search-form {
+            background-color: #2a2a2a;
+            border: 1px solid #333;
         }
         
-        .empty-state i {
-            font-size: 3rem;
-            margin-bottom: 15px;
-            opacity: 0.5;
+        .dark-mode .form-control {
+            background-color: #333;
+            border-color: #404040;
+            color: #e0e0e0;
         }
         
+        .dark-mode .form-control:focus {
+            background-color: #333;
+            border-color: #667eea;
+            color: #e0e0e0;
+        }
+        
+        .dark-mode .form-control::placeholder {
+            color: #888;
+        }
+        
+        /* 深色模式空狀態 */
         .dark-mode .empty-state {
             color: #b0b0b0;
         }
         
-        /* 回報內容彈出視窗 */
-        .modal-content {
-            border-radius: 15px;
-            overflow: hidden;
-        }
-        
-        .modal-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-        }
-        
-        .modal-body {
-            padding: 1.5rem;
-        }
-        
+        /* 深色模式模態框 */
         .dark-mode .modal-content {
             background-color: #2d2d2d;
             color: #ffffff;
@@ -301,41 +366,11 @@ $totalCount = count($reports);
             border-top: 1px solid #444;
         }
         
-        .report-content {
-            white-space: pre-wrap;
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
-            border-left: 4px solid #667eea;
-        }
-        
-        .dark-mode .report-content {
-            background: #333;
-            border-left-color: #667eea;
-        }
-        
-        .report-meta {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            margin-bottom: 1rem;
-            flex-wrap: wrap;
-        }
-        
-        .report-meta-item {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            color: #6c757d;
-            font-size: 0.9rem;
-        }
-        
-        .dark-mode .report-meta-item {
-            color: #adb5bd;
-        }
+        /* 深色模式文字顏色 */
         .dark-mode .text-muted {
-            color: #adb5bd !important;
+            color: #b0b0b0 !important;
         }
+        
         /* 響應式設計 */
         @media (max-width: 768px) {
             .dashboard-container {
@@ -348,10 +383,6 @@ $totalCount = count($reports);
             
             .stats-card {
                 margin-bottom: 15px;
-            }
-            
-            .content-cell {
-                max-width: 150px;
             }
             
             .action-column {
@@ -372,40 +403,62 @@ $totalCount = count($reports);
                 <!-- 頁面標題 -->
                 <div class="page-header">
                     <h2 class="page-title">
-                        <i class="bi bi-chat-square-dots me-3"></i>用戶回饋管理
+                        <i class="bi bi-shield-slash-fill me-3"></i>黑名單管理
                     </h2>
-                    <p class="text-muted mb-0">查看並管理用戶的問題回報與建議</p>
+                    <p class="text-muted mb-0">管理與監控系統中的黑名單用戶</p>
                 </div>
 
                 <!-- 統計卡片 -->
                 <div class="row g-3 mb-4">
                     <div class="col-md-4">
-                        <div class="stats-card bugs">
-                            <div class="stats-icon text-center">
-                                <i class="bi bi-bug"></i>
-                            </div>
-                            <div class="stats-number text-center"><?= $bugCount ?></div>
-                            <div class="stats-label text-center">問題回報</div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="stats-card suggestions">
-                            <div class="stats-icon text-center">
-                                <i class="bi bi-lightbulb"></i>
-                            </div>
-                            <div class="stats-number text-center"><?= $suggestionCount ?></div>
-                            <div class="stats-label text-center">功能建議</div>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
                         <div class="stats-card total">
                             <div class="stats-icon text-center">
-                                <i class="bi bi-chat-dots"></i>
+                                <i class="bi bi-person-x-fill"></i>
                             </div>
-                            <div class="stats-number text-center"><?= $totalCount ?></div>
-                            <div class="stats-label text-center">總回饋數</div>
+                            <div class="stats-number text-center"><?= $totalBlocked ?></div>
+                            <div class="stats-label text-center">總封鎖紀錄</div>
                         </div>
                     </div>
+                    <div class="col-md-4">
+                        <div class="stats-card unique">
+                            <div class="stats-icon text-center">
+                                <i class="bi bi-people"></i>
+                            </div>
+                            <div class="stats-number text-center"><?= $uniqueUsers ?></div>
+                            <div class="stats-label text-center">不重複用戶數</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="stats-card recent">
+                            <div class="stats-icon text-center">
+                                <i class="bi bi-calendar-week"></i>
+                            </div>
+                            <div class="stats-number text-center"><?= $recentBlocked ?></div>
+                            <div class="stats-label text-center">最近7天封鎖</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 搜尋表單 -->
+                <div class="search-form">
+                    <form method="GET" class="row g-3 align-items-end">
+                        <div class="col-md-8">
+                            <label for="search" class="form-label">
+                                <i class="bi bi-search me-2"></i>搜尋黑名單
+                            </label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="search" 
+                                   name="search" 
+                                   placeholder="輸入使用者 ID 或名稱..." 
+                                   value="<?= isset($_GET['search']) ? htmlspecialchars($_GET['search']) : '' ?>">
+                        </div>
+                        <div class="col-md-4">
+                            <button type="submit" class="btn btn-search w-100">
+                                <i class="bi bi-search me-2"></i>搜尋
+                            </button>
+                        </div>
+                    </form>
                 </div>
 
                 <!-- 資料表格 -->
@@ -414,69 +467,53 @@ $totalCount = count($reports);
                         <table class="table table-hover mb-0">
                             <thead>
                                 <tr>
-                                    <th style="width: 5%;"><i class="bi bi-hash me-2"></i>ID</th>
-                                    <th style="width: 10%;"><i class="bi bi-person me-2"></i>用戶</th>
-                                    <th style="width: 10%;"><i class="bi bi-tag me-2"></i>類型</th>
-                                    <th style="width: 15%;"><i class="bi bi-card-heading me-2"></i>標題</th>
-                                    <th style="width: 30%;"><i class="bi bi-card-text me-2"></i>內容摘要</th>
-                                    <th style="width: 15%;"><i class="bi bi-calendar me-2"></i>建立時間</th>
+                                    <th style="width: 8%;"><i class="bi bi-hash me-2"></i>用戶 ID</th>
+                                    <th style="width: 15%;"><i class="bi bi-person me-2"></i>用戶名稱</th>
+                                    <th style="width: 30%;"><i class="bi bi-exclamation-triangle me-2"></i>封鎖原因</th>
+                                    <th style="width: 15%;"><i class="bi bi-calendar me-2"></i>封鎖時間</th>
+                                    <th style="width: 15%;"><i class="bi bi-person-badge me-2"></i>封鎖者</th>
                                     <th class="action-column"><i class="bi bi-gear-fill me-2"></i>操作</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php if (empty($reports)): ?>
+                                <?php if (empty($blacklist)): ?>
                                     <tr>
-                                        <td colspan="7" class="empty-state">
-                                            <i class="bi bi-inbox"></i>
-                                            <p class="mb-0">目前沒有任何回報紀錄</p>
+                                        <td colspan="6" class="empty-state">
+                                            <i class="bi bi-shield-check"></i>
+                                            <p class="mb-0">目前沒有任何封鎖紀錄</p>
+                                            <?php if (!empty($_GET['search'])): ?>
+                                                <small>嘗試使用不同的搜尋條件</small>
+                                            <?php endif; ?>
                                         </td>
                                     </tr>
                                 <?php else: ?>
-                                    <?php foreach ($reports as $row): ?>
+                                    <?php foreach ($blacklist as $row): ?>
                                         <tr>
                                             <td>
-                                                <span class="badge bg-primary"><?= htmlspecialchars($row['report_id']) ?></span>
+                                                <span class="badge bg-danger"><?= htmlspecialchars($row['user_id']) ?></span>
                                             </td>
                                             <td>
-                                                <div class="d-flex flex-column">
-                                                    <strong><?= htmlspecialchars($row['user_name']) ?></strong>
-                                                    <small class="text-muted">#<?= htmlspecialchars($row['user_id']) ?></small>
-                                                </div>
+                                                <strong><?= htmlspecialchars($row['user_name']) ?></strong>
                                             </td>
                                             <td>
-                                                <?php if (strtolower($row['report_type']) == 'bug'): ?>
-                                                    <span class="badge badge-bug bg-danger">
-                                                        <i class="bi bi-bug me-1"></i>問題
-                                                    </span>
-                                                <?php else: ?>
-                                                    <span class="badge badge-suggestion bg-success">
-                                                        <i class="bi bi-lightbulb me-1"></i>建議
-                                                    </span>
-                                                <?php endif; ?>
-                                            </td>
-                                            <td>
-                                                <?= htmlspecialchars($row['title']) ?>
-                                            </td>
-                                            <td class="content-cell">
-                                                <?= mb_substr(htmlspecialchars($row['content']), 0, 50) . (mb_strlen($row['content']) > 50 ? '...' : '') ?>
+                                                <?= htmlspecialchars($row['reason']) ?>
                                             </td>
                                             <td>
                                                 <i class="bi bi-clock-history me-1 text-muted"></i>
-                                                <?= date('Y-m-d H:i', strtotime($row['created_at'])) ?>
+                                                <?= date('Y-m-d H:i', strtotime($row['blocked_at'])) ?>
+                                            </td>
+                                            <td>
+                                                <i class="bi bi-person-circle me-1 text-muted"></i>
+                                                <?= htmlspecialchars($row['manager_name']) ?>
                                             </td>
                                             <td class="action-column">
-                                                <button class="btn btn-action btn-view view-report" 
+                                                <button class="btn btn-action btn-delete delete-record"
                                                         data-bs-toggle="modal" 
-                                                        data-bs-target="#reportModal" 
-                                                        data-id="<?= $row['report_id'] ?>"
-                                                        data-title="<?= htmlspecialchars($row['title']) ?>"
-                                                        data-type="<?= htmlspecialchars($row['report_type']) ?>"
-                                                        data-content="<?= htmlspecialchars($row['content']) ?>"
-                                                        data-user="<?= htmlspecialchars($row['user_name']) ?>"
-                                                        data-userid="<?= htmlspecialchars($row['user_id']) ?>"
-                                                        data-time="<?= htmlspecialchars($row['created_at']) ?>"
-                                                        title="查看詳情">
-                                                    <i class="bi bi-eye-fill"></i>
+                                                        data-bs-target="#deleteModal"
+                                                        data-id="<?= $row['blacklist_id'] ?>"
+                                                        data-name="<?= htmlspecialchars($row['user_name']) ?>"
+                                                        title="解除封鎖">
+                                                    <i class="bi bi-trash-fill"></i>
                                                 </button>
                                             </td>
                                         </tr>
@@ -488,11 +525,14 @@ $totalCount = count($reports);
                 </div>
                 
                 <!-- 資料統計摘要 -->
-                <?php if (!empty($reports)): ?>
+                <?php if (!empty($blacklist)): ?>
                     <div class="mt-3">
                         <small class="text-muted">
                             <i class="bi bi-info-circle me-1"></i>
-                            共有 <strong><?= $totalCount ?></strong> 筆回報紀錄
+                            共有 <strong><?= count($blacklist) ?></strong> 筆封鎖紀錄
+                            <?php if (!empty($_GET['search'])): ?>
+                                （搜尋條件：<strong><?= htmlspecialchars($_GET['search']) ?></strong>）
+                            <?php endif; ?>
                         </small>
                     </div>
                 <?php endif; ?>
@@ -500,36 +540,29 @@ $totalCount = count($reports);
         </div>
     </div>
 
-    <!-- 回報詳情模態框 -->
-    <div class="modal fade" id="reportModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
+    <!-- 刪除確認模態框 -->
+    <div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">
-                        <i class="bi bi-chat-text me-2"></i>
-                        <span id="reportTitle"></span>
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        確認解除封鎖
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="report-meta">
-                        <div class="report-meta-item">
-                            <i class="bi bi-person-circle"></i>
-                            <span id="reportUser"></span>
-                        </div>
-                        <div class="report-meta-item">
-                            <i class="bi bi-calendar-event"></i>
-                            <span id="reportTime"></span>
-                        </div>
-                        <div class="report-meta-item">
-                            <i class="bi bi-tag"></i>
-                            <span id="reportType"></span>
-                        </div>
-                    </div>
-                    <div class="report-content" id="reportContent"></div>
+                    <p>確定要解除封鎖用戶 <strong id="deleteName"></strong> 嗎？</p>
+                    <p class="text-muted">解除封鎖後，此用戶將能夠重新使用系統。</p>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
+                    <form method="POST">
+                        <input type="hidden" name="delete_id" id="deleteId">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-shield-fill-x me-2"></i>確認解除封鎖
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>
@@ -557,29 +590,14 @@ $totalCount = count($reports);
             }
         });
 
-        // 填充模態框內容
-        document.querySelectorAll('.view-report').forEach(button => {
+        // 填充刪除模態框內容
+        document.querySelectorAll('.delete-record').forEach(button => {
             button.addEventListener('click', function() {
-                const title = this.getAttribute('data-title');
-                const type = this.getAttribute('data-type');
-                const content = this.getAttribute('data-content');
-                const user = this.getAttribute('data-user');
-                const userId = this.getAttribute('data-userid');
-                const time = this.getAttribute('data-time');
+                const id = this.getAttribute('data-id');
+                const name = this.getAttribute('data-name');
                 
-                document.getElementById('reportTitle').textContent = title;
-                document.getElementById('reportContent').textContent = content;
-                document.getElementById('reportUser').textContent = `${user} (#${userId})`;
-                document.getElementById('reportTime').textContent = new Date(time).toLocaleString('zh-TW');
-                
-                const reportType = document.getElementById('reportType');
-                if (type.toLowerCase() === 'bug') {
-                    reportType.textContent = '問題回報';
-                    reportType.className = 'text-danger';
-                } else {
-                    reportType.textContent = '功能建議';
-                    reportType.className = 'text-success';
-                }
+                document.getElementById('deleteId').value = id;
+                document.getElementById('deleteName').textContent = name;
             });
         });
     </script>

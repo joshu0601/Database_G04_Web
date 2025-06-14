@@ -51,12 +51,36 @@ if (isset($_POST['login'])) {
             error_log("用戶查詢結果: " . ($user ? "找到" : "未找到"));
             
             if ($user) {
-                $_SESSION['user'] = $user['user_account'];
-                $_SESSION['user_id'] = $user['user_id'];
-                $_SESSION['role'] = 'user';
-                error_log("用戶登入成功，準備跳轉");
-                header("Location: dashboard.php");
-                exit;
+                // 檢查用戶是否在黑名單中
+                $blacklist_check = new PDO('mysql:host=database-g04.cj48gosu0lpo.ap-northeast-1.rds.amazonaws.com;dbname=accounting_system;charset=utf8', 'manager', '5678');
+                $blacklist_check->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                
+                $blacklist_stmt = $blacklist_check->prepare("SELECT bl.*, u.name as user_name 
+                                                           FROM blacklist bl 
+                                                           JOIN users u ON bl.user_id = u.user_id 
+                                                           WHERE bl.user_id = ?");
+                $blacklist_stmt->execute([$user['user_id']]);
+                $blacklist_result = $blacklist_stmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($blacklist_result) {
+                    // 用戶被封鎖，顯示錯誤訊息
+                    $block_time = date('Y-m-d H:i', strtotime($blacklist_result['blocked_at']));
+                    $manager_name = $blacklist_result['user_name'];
+                    $reason = htmlspecialchars($blacklist_result['reason']);
+                    
+                    $msg = "您的帳號已被系統管理員封鎖！<br>
+                           <small class='d-block mt-2 mb-2'>封鎖時間：{$block_time}<br>
+                           封鎖原因：{$reason}</small>";
+                    error_log("用戶被封鎖，無法登入: 用戶ID " . $user['user_id']);
+                } else {
+                    // 用戶未被封鎖，允許登入
+                    $_SESSION['user'] = $user['user_account'];
+                    $_SESSION['user_id'] = $user['user_id'];
+                    $_SESSION['role'] = 'user';
+                    error_log("用戶登入成功，準備跳轉");
+                    header("Location: dashboard.php");
+                    exit;
+                }
             } else {
                 $msg = "用戶帳號不存在。";
             }
@@ -304,11 +328,32 @@ if (isset($_SESSION['role'])) {
             transform: translateY(-1px);
         }
         
+        /* 增強版警告訊息樣式 */
         .alert {
             border-radius: 16px;
             margin-bottom: 1.5rem;
             border: none;
             box-shadow: 0 4px 12px rgba(220, 53, 69, 0.2);
+            padding: 1rem 1.25rem;
+        }
+        
+        .alert-danger {
+            background: linear-gradient(135deg, rgba(220, 53, 69, 0.95) 0%, rgba(189, 33, 48, 0.95) 100%);
+            color: white;
+        }
+        
+        /* 黑名單警告特殊樣式 */
+        .alert-blacklist {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            color: white;
+            border-left: 4px solid #dc3545;
+            padding: 1.25rem;
+        }
+        
+        .alert-blacklist i {
+            font-size: 1.5rem;
+            margin-right: 0.75rem;
+            color: #ef4444;
         }
         
         .admin-indicator {
@@ -435,10 +480,17 @@ if (isset($_SESSION['role'])) {
             
             <div class="login-body">
                 <?php if (isset($msg) && $msg): ?>
-                    <div class="alert alert-danger d-flex align-items-center">
-                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                        <?= htmlspecialchars($msg) ?>
-                    </div>
+                    <?php if (strpos($msg, '您的帳號已被系統管理員封鎖') !== false): ?>
+                        <div class="alert alert-blacklist d-flex align-items-start">
+                            <i class="bi bi-shield-x-fill align-self-center"></i>
+                            <div><?= $msg ?></div>
+                        </div>
+                    <?php else: ?>
+                        <div class="alert alert-danger d-flex align-items-center">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            <?= htmlspecialchars($msg) ?>
+                        </div>
+                    <?php endif; ?>
                 <?php endif; ?>
 
                 <?php if ($is_logged_in): ?>

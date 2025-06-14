@@ -1,53 +1,57 @@
 <?php
 session_start();
 
+// 添加調試信息
+error_log("註冊頁面載入，POST 數據: " . print_r($_POST, true));
+
 // Database connection (MySQL)
 $db = new PDO('mysql:host=database-g04.cj48gosu0lpo.ap-northeast-1.rds.amazonaws.com;dbname=accounting_system;charset=utf8', 'customer', '1234');
 $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-// Handle registration
 $msg = "";
-$success_msg = "";
-
 if (isset($_POST['register'])) {
-    $user_account = trim($_POST['reg_username']);
-    $name = trim($_POST['reg_name']);
-    $password = $_POST['reg_password'];
-    $confirm_password = $_POST['reg_confirm_password'];
+    error_log("偵測到註冊表單提交");
     
-    // 驗證輸入
-    if (!$user_account || !$name || !$password || !$confirm_password) {
-        $msg = "請填寫所有欄位。";
+    // 獲取表單數據
+    $username = trim($_POST['username'] ?? '');
+    $email = trim($_POST['email'] ?? '');
+    $password = $_POST['password'] ?? '';
+    $confirm_password = $_POST['confirm_password'] ?? '';
+    
+    error_log("註冊數據 - 用戶名: $username, 郵箱: $email");
+    
+    // 基本驗證
+    if (empty($username) || empty($email) || empty($password) || empty($confirm_password)) {
+        $msg = "所有欄位都是必填的。";
     } elseif ($password !== $confirm_password) {
-        $msg = "密碼與確認密碼不相符。";
+        $msg = "密碼和確認密碼不匹配。";
     } elseif (strlen($password) < 6) {
-        $msg = "密碼長度至少需要 6 個字元。";
-    } elseif (!filter_var($user_account, FILTER_VALIDATE_EMAIL)) {
-        $msg = "請輸入有效的電子郵件格式。";
+        $msg = "密碼長度必須至少為6個字符。";
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $msg = "請提供有效的電子郵件地址。";
     } else {
         try {
-            // 檢查帳號是否已存在
-            $check_stmt = $db->prepare("SELECT COUNT(*) FROM users WHERE user_account = ?");
-            $check_stmt->execute([$user_account]);
+            // 檢查用戶名和電子郵件是否已經存在
+            $check_stmt = $db->prepare("SELECT COUNT(*) FROM users WHERE user_account = ? OR name = ?");
+            $check_stmt->execute([$email, $username]);
+            $user_exists = $check_stmt->fetchColumn();
             
-            if ($check_stmt->fetchColumn() > 0) {
-                $msg = "此電子郵件已被註冊，請使用其他電子郵件。";
+            if ($user_exists) {
+                $msg = "用戶名或電子郵件已經被使用。";
             } else {
-                // 插入新用戶（不儲存密碼，因為登入時沒有驗證密碼）
-                $stmt = $db->prepare("INSERT INTO users (user_account, name) VALUES (?, ?)");
-                $stmt->execute([$user_account, $name]);
-                $success_msg = "註冊成功！3 秒後將自動跳轉至登入頁面...";
+                // 創建新用戶
+                $insert_stmt = $db->prepare("INSERT INTO users (name, user_account) VALUES (?, ?)");
+                $insert_stmt->execute([$username, $email]);
                 
-                // 3秒後自動跳轉
-                echo "<script>
-                    setTimeout(function() {
-                        window.location.href = 'login.php';
-                    }, 3000);
-                </script>";
+                $msg = "註冊成功！現在您可以登錄了。";
+                
+                // 重定向到儀表板
+                header("Location: login.php");
+                exit;
             }
         } catch (PDOException $e) {
-            $msg = "註冊失敗，請稍後再試。";
-            error_log("Registration error: " . $e->getMessage());
+            $msg = "註冊過程中發生錯誤：" . $e->getMessage();
+            error_log("註冊錯誤: " . $e->getMessage());
         }
     }
 }
@@ -57,7 +61,7 @@ if (isset($_POST['register'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>註冊 - 記帳管理系統</title>
+    <title>註冊新帳號 - 記帳管理系統</title>
     <link rel="icon" type="image/png" href="icon.png">
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -100,9 +104,9 @@ if (isset($_POST['register'])) {
             z-index: 0;
         }
         
-        .form-signin {
+        .form-register {
             width: 100%;
-            max-width: 480px;
+            max-width: 500px;
             position: relative;
             z-index: 1;
         }
@@ -144,27 +148,6 @@ if (isset($_POST['register'])) {
             margin-bottom: 0;
         }
         
-        .form-section-title {
-            color: #4f46e5;
-            font-weight: 600;
-            font-size: 1.1rem;
-            margin-bottom: 1.5rem;
-            text-align: center;
-            position: relative;
-        }
-        
-        .form-section-title::after {
-            content: '';
-            position: absolute;
-            bottom: -5px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 60px;
-            height: 2px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 2px;
-        }
-        
         .input-group-custom {
             margin-bottom: 1rem;
             position: relative;
@@ -199,24 +182,6 @@ if (isset($_POST['register'])) {
             color: #9ca3af;
         }
         
-        .form-control.is-valid {
-            border-color: #10b981;
-        }
-        
-        .form-control.is-invalid {
-            border-color: #ef4444;
-        }
-        
-        .password-strength {
-            font-size: 0.85rem;
-            margin-top: 0.25rem;
-            padding-left: 1rem;
-        }
-        
-        .password-strength.weak { color: #ef4444; }
-        .password-strength.medium { color: #f59e0b; }
-        .password-strength.strong { color: #10b981; }
-        
         .btn-register {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             border: none;
@@ -250,7 +215,7 @@ if (isset($_POST['register'])) {
             left: 100%;
         }
         
-        .btn-login-link {
+        .btn-login {
             background: rgba(102, 126, 234, 0.1);
             border: 2px solid rgba(102, 126, 234, 0.2);
             border-radius: 16px;
@@ -258,18 +223,13 @@ if (isset($_POST['register'])) {
             font-weight: 600;
             color: #667eea;
             transition: all 0.3s ease;
-            text-decoration: none;
-            display: inline-block;
-            width: 100%;
-            text-align: center;
         }
         
-        .btn-login-link:hover {
+        .btn-login:hover {
             background: rgba(102, 126, 234, 0.15);
             border-color: rgba(102, 126, 234, 0.3);
             color: #4f46e5;
             transform: translateY(-1px);
-            text-decoration: none;
         }
         
         .alert {
@@ -277,36 +237,28 @@ if (isset($_POST['register'])) {
             margin-bottom: 1.5rem;
             border: none;
             box-shadow: 0 4px 12px rgba(220, 53, 69, 0.2);
+            padding: 1rem 1.25rem;
+        }
+        
+        .alert-danger {
+            background: linear-gradient(135deg, rgba(220, 53, 69, 0.95) 0%, rgba(189, 33, 48, 0.95) 100%);
+            color: white;
         }
         
         .alert-success {
-            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.1) 100%);
-            color: #065f46;
-            border: 1px solid rgba(16, 185, 129, 0.2);
+            background: linear-gradient(135deg, rgba(25, 135, 84, 0.95) 0%, rgba(20, 108, 67, 0.95) 100%);
+            color: white;
         }
         
-        .form-text {
-            color: #6b7280;
-            font-size: 0.875rem;
-            margin-top: 0.25rem;
-            padding-left: 1rem;
+        .form-label {
+            font-weight: 500;
+            color: #4b5563;
+            margin-bottom: 0.5rem;
+            margin-left: 0.5rem;
         }
         
-        .loading-spinner {
-            display: none;
-        }
-        
-        .loading .loading-spinner {
-            display: inline-block;
-        }
-        
-        .loading .btn-text {
-            display: none;
-        }
-        
-        /* 響應式設計 */
         @media (max-width: 576px) {
-            .form-signin {
+            .form-register {
                 max-width: 100%;
                 padding: 0 1rem;
             }
@@ -326,104 +278,70 @@ if (isset($_POST['register'])) {
     </style>
 </head>
 <body>
-    <main class="form-signin">
+    <main class="form-register">
         <div class="register-card">
             <div class="register-header">
                 <div class="system-title">
-                    <i class="bi bi-calculator me-2"></i>記帳管理系統
+                    <i class="bi bi-person-plus me-2"></i>註冊新帳號
                 </div>
-                <p class="system-subtitle">財務管理，輕鬆掌控每一筆支出</p>
+                <p class="system-subtitle">加入我們，開始追蹤您的財務狀況</p>
             </div>
             
             <div class="register-body">
-                <!-- 錯誤訊息 -->
                 <?php if (isset($msg) && $msg): ?>
-                    <div class="alert alert-danger d-flex align-items-center">
-                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    <div class="alert <?= strpos($msg, '成功') !== false ? 'alert-success' : 'alert-danger' ?> d-flex align-items-center">
+                        <i class="bi <?= strpos($msg, '成功') !== false ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill' ?> me-2"></i>
                         <?= htmlspecialchars($msg) ?>
                     </div>
                 <?php endif; ?>
 
-                <!-- 成功訊息 -->
-                <?php if (isset($success_msg) && $success_msg): ?>
-                    <div class="alert alert-success d-flex align-items-center">
-                        <i class="bi bi-check-circle-fill me-2"></i>
-                        <?= htmlspecialchars($success_msg) ?>
-                    </div>
-                <?php endif; ?>
-
-                <?php if (!$success_msg): ?>
-                    <form method="post" id="registerForm" novalidate>
-                        <div class="form-section-title">
-                            <i class="bi bi-person-plus me-2"></i>建立新帳號
-                        </div>
-                        
-                        <!-- 電子郵件輸入框 -->
-                        <div class="input-group-custom">
-                            <i class="bi bi-envelope input-icon"></i>
-                            <input type="email" 
-                                   class="form-control" 
-                                   id="reg_username" 
-                                   name="reg_username" 
-                                   placeholder="請輸入電子郵件地址" 
-                                   required>
-                        </div>
-                        <div class="form-text">
-                            <i class="bi bi-info-circle me-1"></i>這將作為您的登入帳號
-                        </div>
-                        
-                        <!-- 姓名輸入框 -->
+                <form method="post" id="registerForm">
+                    <!-- 用戶名 -->
+                    <div class="mb-3">
+                        <label for="username" class="form-label">用戶名稱</label>
                         <div class="input-group-custom">
                             <i class="bi bi-person input-icon"></i>
-                            <input type="text" 
-                                   class="form-control" 
-                                   id="reg_name" 
-                                   name="reg_name" 
-                                   placeholder="請輸入您的姓名" 
-                                   required>
+                            <input type="text" class="form-control" id="username" name="username" placeholder="輸入您的用戶名稱" required>
                         </div>
-                        
-                        <!-- 密碼輸入框 -->
+                    </div>
+                    
+                    <!-- 電子郵件 -->
+                    <div class="mb-3">
+                        <label for="email" class="form-label">電子郵件</label>
+                        <div class="input-group-custom">
+                            <i class="bi bi-envelope input-icon"></i>
+                            <input type="email" class="form-control" id="email" name="email" placeholder="輸入您的電子郵件" required>
+                        </div>
+                    </div>
+                    
+                    <!-- 密碼 -->
+                    <div class="mb-3">
+                        <label for="password" class="form-label">密碼</label>
                         <div class="input-group-custom">
                             <i class="bi bi-lock input-icon"></i>
-                            <input type="password" 
-                                   class="form-control" 
-                                   id="reg_password" 
-                                   name="reg_password" 
-                                   placeholder="請輸入密碼（至少6位）" 
-                                   required>
+                            <input type="password" class="form-control" id="password" name="password" placeholder="設定您的密碼" required>
                         </div>
-                        <div class="password-strength" id="passwordStrength"></div>
-                        
-                        <!-- 確認密碼輸入框 -->
+                    </div>
+                    
+                    <!-- 確認密碼 -->
+                    <div class="mb-3">
+                        <label for="confirm_password" class="form-label">確認密碼</label>
                         <div class="input-group-custom">
-                            <i class="bi bi-shield-check input-icon"></i>
-                            <input type="password" 
-                                   class="form-control" 
-                                   id="reg_confirm_password" 
-                                   name="reg_confirm_password" 
-                                   placeholder="請再次輸入密碼" 
-                                   required>
+                            <i class="bi bi-lock-fill input-icon"></i>
+                            <input type="password" class="form-control" id="confirm_password" name="confirm_password" placeholder="再次輸入您的密碼" required>
                         </div>
-                        <div class="form-text" id="passwordMatch"></div>
-                        
-                        <div class="mb-3 mt-4">
-                            <button class="w-100 btn btn-register" type="submit" name="register" id="registerBtn">
-                                <span class="loading-spinner">
-                                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-                                    註冊中...
-                                </span>
-                                <span class="btn-text">
-                                    <i class="bi bi-person-plus me-2"></i>立即註冊
-                                </span>
-                            </button>
-                        </div>
-                    </form>
-                <?php endif; ?>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <button class="w-100 btn btn-register" type="submit" name="register" id="submitBtn">
+                            <i class="bi bi-person-plus-fill me-2"></i>建立帳號
+                        </button>
+                    </div>
+                </form>
                 
                 <div class="text-center">
-                    <a href="login.php" class="btn-login-link">
-                        <i class="bi bi-arrow-left me-2"></i>已有帳號？返回登入
+                    <a href="login.php" class="w-100 btn btn-login">
+                        <i class="bi bi-box-arrow-in-right me-2"></i>返回登入
                     </a>
                 </div>
             </div>
@@ -434,161 +352,68 @@ if (isset($_POST['register'])) {
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
+        // 表單驗證
         document.addEventListener('DOMContentLoaded', function() {
-            const passwordInput = document.getElementById('reg_password');
-            const confirmPasswordInput = document.getElementById('reg_confirm_password');
-            const passwordStrength = document.getElementById('passwordStrength');
-            const passwordMatch = document.getElementById('passwordMatch');
-            const registerForm = document.getElementById('registerForm');
-            const registerBtn = document.getElementById('registerBtn');
-            const emailInput = document.getElementById('reg_username');
+            const form = document.getElementById('registerForm');
+            const password = document.getElementById('password');
+            const confirmPassword = document.getElementById('confirm_password');
+            const submitBtn = document.getElementById('submitBtn');
             
-            // 密碼強度檢查
-            if (passwordInput && passwordStrength) {
-                passwordInput.addEventListener('input', function() {
-                    const password = this.value;
-                    const strength = checkPasswordStrength(password);
-                    
-                    passwordStrength.textContent = strength.text;
-                    passwordStrength.className = 'password-strength ' + strength.class;
-                    
-                    // 更新輸入框樣式
-                    if (password.length > 0) {
-                        if (strength.class === 'strong') {
-                            this.classList.add('is-valid');
-                            this.classList.remove('is-invalid');
-                        } else {
-                            this.classList.add('is-invalid');
-                            this.classList.remove('is-valid');
-                        }
-                    } else {
-                        this.classList.remove('is-valid', 'is-invalid');
-                    }
-                });
-            }
-            
-            // 密碼確認檢查
-            if (confirmPasswordInput && passwordMatch) {
-                confirmPasswordInput.addEventListener('input', function() {
-                    const password = passwordInput.value;
-                    const confirmPassword = this.value;
-                    
-                    if (confirmPassword.length > 0) {
-                        if (password === confirmPassword) {
-                            passwordMatch.innerHTML = '<i class="bi bi-check-circle text-success me-1"></i>密碼相符';
-                            this.classList.add('is-valid');
-                            this.classList.remove('is-invalid');
-                        } else {
-                            passwordMatch.innerHTML = '<i class="bi bi-x-circle text-danger me-1"></i>密碼不相符';
-                            this.classList.add('is-invalid');
-                            this.classList.remove('is-valid');
-                        }
-                    } else {
-                        passwordMatch.textContent = '';
-                        this.classList.remove('is-valid', 'is-invalid');
-                    }
-                });
-            }
-            
-            // 電子郵件格式檢查
-            if (emailInput) {
-                emailInput.addEventListener('blur', function() {
-                    const email = this.value;
-                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                    
-                    if (email.length > 0) {
-                        if (emailRegex.test(email)) {
-                            this.classList.add('is-valid');
-                            this.classList.remove('is-invalid');
-                        } else {
-                            this.classList.add('is-invalid');
-                            this.classList.remove('is-valid');
-                        }
-                    }
-                });
-            }
-            
-            // 表單提交處理
-            if (registerForm && registerBtn) {
-                registerForm.addEventListener('submit', function(e) {
-                    const isValid = validateForm();
-                    
-                    if (isValid) {
-                        registerBtn.classList.add('loading');
-                        registerBtn.disabled = true;
-                        
-                        // 防止重複提交
-                        setTimeout(function() {
-                            if (!registerBtn.classList.contains('loading')) return;
-                            registerBtn.classList.remove('loading');
-                            registerBtn.disabled = false;
-                        }, 10000);
-                    } else {
-                        e.preventDefault();
-                    }
-                });
-            }
-            
-            function checkPasswordStrength(password) {
-                if (password.length === 0) {
-                    return { text: '', class: '' };
+            // 僅進行前端驗證，不阻止表單提交
+            form.addEventListener('submit', function(event) {
+                console.log("表單提交觸發");
+                
+                // 清除之前的錯誤消息
+                clearErrors();
+                
+                let isValid = true;
+                
+                // 檢查密碼長度
+                if (password.value.length < 6) {
+                    showError(password, '密碼長度必須至少為6個字符');
+                    isValid = false;
                 }
                 
-                if (password.length < 6) {
-                    return { text: '密碼太短（至少需要6個字元）', class: 'weak' };
+                // 檢查密碼匹配
+                if (password.value !== confirmPassword.value) {
+                    showError(confirmPassword, '密碼不匹配');
+                    isValid = false;
                 }
                 
-                let score = 0;
-                if (password.length >= 8) score++;
-                if (/[a-z]/.test(password)) score++;
-                if (/[A-Z]/.test(password)) score++;
-                if (/[0-9]/.test(password)) score++;
-                if (/[^a-zA-Z0-9]/.test(password)) score++;
-                
-                if (score < 2) {
-                    return { text: '密碼強度：弱', class: 'weak' };
-                } else if (score < 4) {
-                    return { text: '密碼強度：中等', class: 'medium' };
+                // 如果有驗證錯誤，顯示提示並阻止提交
+                if (!isValid) {
+                    event.preventDefault();
+                    console.log("表單驗證失敗，已阻止提交");
                 } else {
-                    return { text: '密碼強度：強', class: 'strong' };
+                    console.log("表單驗證成功，允許提交");
+                    // 這裡允許表單正常提交，不做任何阻止
                 }
+            });
+            
+            // 顯示錯誤消息的函數
+            function showError(input, message) {
+                const formGroup = input.closest('.mb-3');
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'text-danger mt-1 error-message';
+                errorDiv.style.marginLeft = '0.5rem';
+                errorDiv.innerHTML = `<small><i class="bi bi-exclamation-circle me-1"></i>${message}</small>`;
+                formGroup.appendChild(errorDiv);
+                input.classList.add('is-invalid');
             }
             
-            function validateForm() {
-                const email = emailInput.value.trim();
-                const name = document.getElementById('reg_name').value.trim();
-                const password = passwordInput.value;
-                const confirmPassword = confirmPasswordInput.value;
-                
-                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                
-                if (!email || !emailRegex.test(email)) {
-                    alert('請輸入有效的電子郵件地址');
-                    return false;
-                }
-                
-                if (!name) {
-                    alert('請輸入姓名');
-                    return false;
-                }
-                
-                if (password.length < 6) {
-                    alert('密碼至少需要6個字元');
-                    return false;
-                }
-                
-                if (password !== confirmPassword) {
-                    alert('密碼與確認密碼不相符');
-                    return false;
-                }
-                
-                return true;
+            // 清除所有錯誤消息
+            function clearErrors() {
+                document.querySelectorAll('.error-message').forEach(error => error.remove());
+                document.querySelectorAll('.is-invalid').forEach(input => input.classList.remove('is-invalid'));
             }
-        });
-        
-        // 全域錯誤處理
-        window.addEventListener('error', function(e) {
-            console.error('全域錯誤:', e.error);
+            
+            // 實時密碼確認匹配
+            confirmPassword.addEventListener('input', function() {
+                clearErrors();
+                if (password.value !== confirmPassword.value) {
+                    showError(confirmPassword, '密碼不匹配');
+                }
+            });
         });
     </script>
 </body>

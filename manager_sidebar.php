@@ -13,23 +13,37 @@
         transition: all 0.3s ease;
     }
     
+    /* 調整側邊欄寬度和容器 */
+    .sidebar-container {
+        width: 300px; /* 將寬度從 col-md-3 (25%) 調整為固定 240px */
+        flex: 0 0 300px;
+    }
+    
+    .main-content-container {
+        width: calc(100% - 260px); /* 主內容寬度 = 100% - sidebar寬度 - 間距 */
+        flex: 1;
+        margin-left: 20px;
+    }
+    
     /* 管理者側邊欄樣式 */
     .manager-sidebar {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         min-height: calc(100vh - 30px);
         border-radius: 15px;
         box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-        padding: 25px 20px;
+        padding: 20px 15px; /* 減少內邊距 */
         color: white;
+        width: 100%;
     }
     
     .manager-sidebar .nav-link {
-        border-radius: 10px;
-        margin-bottom: 8px;
+        border-radius: 8px; /* 調小圓角 */
+        margin-bottom: 6px; /* 減少間距 */
         color: rgba(255, 255, 255, 0.9);
         transition: all 0.3s ease;
-        padding: 12px 16px;
+        padding: 10px 12px; /* 減少內邊距 */
         font-weight: 500;
+        font-size: 0.9rem; /* 調小字體 */
     }
     
     .manager-sidebar .nav-link:hover {
@@ -45,28 +59,39 @@
     }
     
     .manager-sidebar .nav-link i {
-        margin-right: 12px;
-        font-size: 1.1em;
+        margin-right: 10px; /* 減少圖示間距 */
+        font-size: 1em;
+        width: 18px; /* 固定圖示寬度 */
+        text-align: center;
     }
     
     .manager-sidebar .system-title {
         color: white;
         font-weight: 700;
-        font-size: 1.3rem;
+        font-size: 1.2rem; /* 調小標題 */
         text-align: center;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.4rem;
     }
     
     .manager-sidebar .system-subtitle {
         color: rgba(255, 255, 255, 0.8);
-        font-size: 0.85rem;
+        font-size: 0.8rem; /* 調小副標題 */
         text-align: center;
-        margin-bottom: 1.5rem;
+        margin-bottom: 1.2rem;
     }
     
     .manager-sidebar hr {
         border-color: rgba(255, 255, 255, 0.3);
-        margin: 1.5rem 0;
+        margin: 1rem 0; /* 減少分隔線間距 */
+    }
+    
+    /* 深色模式切換開關調整 */
+    .form-check-input {
+        width: 2.5em;
+    }
+    
+    .form-check-label {
+        font-size: 0.85rem;
     }
     
     /* 管理者卡片樣式 */
@@ -126,19 +151,33 @@
     .stats-card.revenue .stats-icon { color: #ffc107; }
     .stats-card.reports .stats-icon { color: #dc3545; }
     
+    /* 快速統計調整 */
+    .manager-sidebar .mt-4 h6 {
+        font-size: 0.9rem;
+        margin-bottom: 0.8rem;
+    }
+    
+    .manager-sidebar .small {
+        font-size: 0.8rem;
+    }
+    
+    .manager-sidebar .small .d-flex {
+        margin-bottom: 6px;
+    }
+    
     /* 深色模式樣式 */
     body.dark-mode {
         background-color: #121212;
-        color: #ffffff;
+        color: #e0e0e0;
     }
     
     .dark-mode .manager-sidebar {
-        background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     }
     
     .dark-mode .manager-card {
         background-color: #252525;
-        color: #ffffff;
+        color: #e0e0e0;
     }
     
     .dark-mode .manager-card-header {
@@ -147,7 +186,7 @@
     
     .dark-mode .stats-card {
         background-color: #2d2d2d;
-        color: #ffffff;
+        color: #e0e0e0;
     }
     
     .dark-mode .stats-card .stats-label {
@@ -156,7 +195,7 @@
     
     /* 深色模式表格樣式 */
     .dark-mode .table {
-        color: #ffffff !important;
+        color: #e0e0e0 !important;
         background-color: #252525 !important;
     }
     
@@ -164,26 +203,54 @@
     .dark-mode .table th {
         background-color: #252525 !important;
         border-color: #333 !important;
-        color: #ffffff !important;
+        color: #e0e0e0 !important;
     }
     
     .dark-mode .table-hover > tbody > tr:hover > * {
         background-color: #333 !important;
-        color: #ffffff !important;
+        color: #e0e0e0 !important;
     }
     
     /* 響應式設計 */
+    @media (max-width: 992px) {
+        .sidebar-container {
+            width: 200px;
+            flex: 0 0 200px;
+        }
+        
+        .main-content-container {
+            width: calc(100% - 215px);
+            margin-left: 15px;
+        }
+        
+        .manager-sidebar .nav-link {
+            padding: 8px 10px;
+            font-size: 0.85rem;
+        }
+        
+        .manager-sidebar .system-title {
+            font-size: 1.1rem;
+        }
+        
+        .manager-sidebar .system-subtitle {
+            font-size: 0.75rem;
+        }
+    }
+    
     @media (max-width: 768px) {
+        .sidebar-container {
+            width: 100%;
+            flex: 0 0 100%;
+            margin-bottom: 15px;
+        }
+        
+        .main-content-container {
+            width: 100%;
+            margin-left: 0;
+        }
+        
         .manager-sidebar {
-            margin-bottom: 20px;
-        }
-        
-        .system-title {
-            font-size: 1.1rem !important;
-        }
-        
-        .system-subtitle {
-            font-size: 0.8rem !important;
+            min-height: auto;
         }
     }
 </style>
@@ -211,7 +278,7 @@
             html.classList.add('dark-mode');
             localStorage.setItem('manager-theme', 'dark');
             html.style.backgroundColor = '#1a1a1a';
-            html.style.color = '#ffffff';
+            html.style.color = '#e0e0e0';
             if (toggle) toggle.checked = true;
         }
     }
@@ -227,7 +294,7 @@
             document.body.classList.add('dark-mode');
             document.documentElement.classList.add('dark-mode');
             document.documentElement.style.backgroundColor = '#1a1a1a';
-            document.documentElement.style.color = '#ffffff';
+            document.documentElement.style.color = '#e0e0e0';
             if (toggle) toggle.checked = true;
         } else {
             document.body.classList.remove('dark-mode');
@@ -245,7 +312,7 @@
 </script>
 
 <!-- 管理者側邊欄 HTML 內容 -->
-<div class="col-md-3 sidebar-container">
+<div class="sidebar-container">
     <div class="manager-sidebar sticky-top">
         <div class="text-center mb-3">
             <div class="system-title">
@@ -272,48 +339,17 @@
                 </a>
             </li>
             <li class="nav-item">
-                <a class="nav-link <?= $current_page === 'user_management' ? 'active' : '' ?>" href="user_management.php">
-                    <i class="bi bi-people"></i> <strong>用戶管理</strong>
+                <a class="nav-link <?= $current_page === 'blacklistview' ? 'active' : '' ?>" href="blacklistview.php">
+                    <i class="bi bi-people"></i> <strong>黑名單</strong>
                 </a>
             </li>
             <li class="nav-item">
-                <a class="nav-link <?= $current_page === 'transaction_monitor' ? 'active' : '' ?>" href="transaction_monitor.php">
-                    <i class="bi bi-activity"></i> <strong>交易監控</strong>
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link <?= $current_page === 'system_reports' ? 'active' : '' ?>" href="system_reports.php">
-                    <i class="bi bi-graph-up"></i> <strong>系統報表</strong>
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link <?= $current_page === 'data_backup' ? 'active' : '' ?>" href="data_backup.php">
-                    <i class="bi bi-cloud-arrow-down"></i> <strong>資料備份</strong>
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link <?= $current_page === 'system_settings' ? 'active' : '' ?>" href="system_settings.php">
-                    <i class="bi bi-gear"></i> <strong>系統設定</strong>
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link <?= $current_page === 'user_feedback' ? 'active' : '' ?>" href="user_feedback.php">
+                <a class="nav-link <?= $current_page === 'user_feedback' ? 'active' : '' ?>" href="feedback_bug_reports.php">
                     <i class="bi bi-chat-square-dots"></i> <strong>用戶回饋</strong>
                 </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link <?= $current_page === 'audit_logs' ? 'active' : '' ?>" href="audit_logs.php">
-                    <i class="bi bi-journal-check"></i> <strong>審計日誌</strong>
-                </a>
-            </li>
-            
+            </li>      
             <hr>
-            
-            <li class="nav-item">
-                <a class="nav-link <?= $current_page === 'manager_profile' ? 'active' : '' ?>" href="manager_profile.php">
-                    <i class="bi bi-person-badge"></i> <strong>管理者設定</strong>
-                </a>
-            </li>
+    
             <li class="nav-item">
                 <a class="nav-link text-warning" href="login.php?logout=1" onclick="return confirm('確定要登出嗎？')">
                     <i class="bi bi-box-arrow-right"></i> <strong>安全登出</strong>
